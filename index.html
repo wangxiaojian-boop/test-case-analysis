@@ -175,7 +175,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r5";
+var APP_VER="v2026.10.21-r6";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -1450,11 +1450,47 @@ function exportExcel(){
     var res=RESULT.modResults[key]?RESULT.modResults[key].res:{};
     var row={"模块":m.folder,"用例总数":m.total};
     resKeys.forEach(function(k){row[k]=res[k]||0});
+    var ms=RESULT.modStatusStats[m.folder]||{status:{}};var pst=ms.status||{};
+    var pN=pst["Passed"]||0,naN1=0;Object.keys(pst).forEach(function(kk){if(/^n\/?a$/i.test(kk))naN1+=pst[kk]});
+    row["通过率(剔N/A)"]=(m.total-naN1)>0?pct(pN,m.total-naN1).toFixed(1)+"%":"-";
     row["负责人"]=m.owners.join(";");
     return row;
   });
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),"模块统计");
+
+  // 折叠内容①：用例明细页三级树全量（页面上默认折叠的二级/三级节点全部展开导出）
+  var sKeys0=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]});
+  var vTree={},vOrder=[];
+  RESULT.all.forEach(function(r){
+    var ps=String(r.folder||"").split(">").map(function(p){return p.trim()}).filter(Boolean);
+    var p2=ps[1]||"(空)";var p3=ps[2]||"(本层)";
+    if(!vTree[r.main]){vTree[r.main]={total:0,subs:{},st:{},defs:{}};vOrder.push(r.main)}
+    var M=vTree[r.main];M.total++;M.st[r.status||"(未标)"]=(M.st[r.status||"(未标)"]||0)+1;addDefIds(M.defs,rowDefs(r));
+    var S=M.subs[p2];if(!S){S=M.subs[p2]={total:0,l3:{},st:{},defs:{}}}
+    S.total++;S.st[r.status||"(未标)"]=(S.st[r.status||"(未标)"]||0)+1;addDefIds(S.defs,rowDefs(r));
+    var L=S.l3[p3];if(!L){L=S.l3[p3]={total:0,st:{},defs:{}}}
+    L.total++;L.st[r.status||"(未标)"]=(L.st[r.status||"(未标)"]||0)+1;addDefIds(L.defs,rowDefs(r));
+  });
+  var trrows=[];
+  function stCols(st){var o={};sKeys0.forEach(function(s){o[s]=st[s]||0});Object.keys(st).forEach(function(k){if(o[k]===undefined)o[k]=st[k]});return o}
+  vOrder.forEach(function(main){
+    var M=vTree[main];
+    var base1={"层级":"1-主模块","主模块":main,"二级目录":"","三级目录":"","用例数":M.total,"占全部(%)":pct(M.total,RESULT.all.length).toFixed(2),"缺陷数(去重)":countKeys(M.defs)};
+    trrows.push(Object.assign(base1,stCols(M.st)));
+    Object.keys(M.subs).sort(function(a,b){return M.subs[b].total-M.subs[a].total}).forEach(function(s){
+      var S=M.subs[s];
+      trrows.push(Object.assign({"层级":"2-二级目录","主模块":main,"二级目录":s,"三级目录":"","用例数":S.total,"占主模块(%)":pct(S.total,M.total).toFixed(2),"缺陷数(去重)":countKeys(S.defs)},stCols(S.st)));
+      var l3k=Object.keys(S.l3);
+      if(!(l3k.length===1&&l3k[0]==="(本层)")){
+        l3k.sort(function(a,b){return S.l3[b].total-S.l3[a].total}).forEach(function(t){
+          var L=S.l3[t];
+          trrows.push(Object.assign({"层级":"3-三级目录","主模块":main,"二级目录":s,"三级目录":t,"用例数":L.total,"占二级(%)":pct(L.total,S.total).toFixed(2),"缺陷数(去重)":countKeys(L.defs)},stCols(L.st)));
+        });
+      }
+    });
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trrows),"模块层级明细");
 
   var sKeys=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]});
   var tarr=Object.values(RESULT.topStatusStats);
@@ -1475,6 +1511,19 @@ function exportExcel(){
     return{"主模块":m.main,"用例总数":m.total,"缺陷数(去重)":m.defects,"关联缺陷用例数":m.defCases,"挂接次数":m.occur,"缺陷密度(%)":m.density.toFixed(2)};
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ddata),"缺陷统计");
+
+  // 折叠内容②：模块统计页 Bug 展开行全量（含每个缺陷关联的每一条用例，页面上只显示前5个芯片）
+  var mdrows=[];
+  Object.keys(RESULT.modDefList).forEach(function(folder){
+    var mdl=RESULT.modDefList[folder];
+    Object.keys(mdl.ids).sort(function(a,b){return mdl.ids[b].n-mdl.ids[a].n}).forEach(function(id){
+      var d=mdl.ids[id];var meta=DEF_META[id]||{};
+      (d.cases||[]).forEach(function(c){
+        mdrows.push({"模块":folder,"缺陷ID":id,"Priority":meta.priority||"","Status":meta.status||"","Resolution":meta.resolution||"","Assignee":meta.assignee||"","Test ID":c.id||"","Case ID":c.cid||"","用例标题":c.title||"","用例Status":c.status||""});
+      });
+    });
+  });
+  if(mdrows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mdrows),"模块缺陷明细");
 
   if(Object.keys(DEF_META).length){
     var bdata=RESULT.defStats.topDefects.map(function(t){

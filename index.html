@@ -129,6 +129,8 @@ table{border-radius:8px;overflow-anchor:none}
     <button id="btnPng" class="ghost">下载当前页图表 PNG</button>
     <button id="btnBugFile" class="ghost">载入BUG表</button>
     <input type="file" id="bugfile" accept=".xlsx,.xls" style="display:none">
+    <input id="globalSearch" class="search-input" style="min-width:210px;margin:0" placeholder="🔍 全局搜索 · 用例/缺陷/模块 · 回车">
+    <button id="btnGSearch" class="ghost" style="padding:6px 12px;font-size:12px">搜索</button>
     <span id="meta" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
   </div>
   <div id="main" style="display:none">
@@ -162,6 +164,7 @@ table{border-radius:8px;overflow-anchor:none}
       <div class="tab" data-p="p7">缺陷统计</div>
       <div class="tab" data-p="p8">自动通过</div>
       <div class="tab" data-p="p4">结果分析(含优先级)</div>
+      <div class="tab" data-p="p9" id="tabP9" style="display:none">🔍 搜索结果</div>
     </div>
     <div class="panel active" id="p1"></div>
     <div class="panel" id="p2"></div>
@@ -170,11 +173,12 @@ table{border-radius:8px;overflow-anchor:none}
     <div class="panel" id="p5"></div>
     <div class="panel" id="p7"></div>
     <div class="panel" id="p8"></div>
+    <div class="panel" id="p9"></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r8";
+var APP_VER="v2026.10.21-r9";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -1738,6 +1742,37 @@ document.getElementById("bugfile").addEventListener("change",function(e){
   };
   rd.readAsArrayBuffer(f);
 });
+function doGSearch(){
+  if(!RESULT){toast("请先载入数据");return}
+  var q=(document.getElementById("globalSearch").value||"").trim();
+  if(!q){toast("请输入搜索关键字");return}
+  var ql=q.toLowerCase();
+  var hitRows=RESULT.all.filter(function(r){
+    return ((r.tid||"")+" "+(r.id||"")+" "+(r.title||"")+" "+(r.folder||"")+" "+(r.prio||"")+" "+(r.status||"")+" "+(r.result||"")+" "+(r.owner||"")).toLowerCase().indexOf(ql)!==-1;
+  });
+  var hitMods=RESULT.mods.filter(function(m){return String(m.folder||"").toLowerCase().indexOf(ql)!==-1});
+  var hitBugs=RESULT.defStats.topDefects.filter(function(d){
+    var mt=DEF_META[d.id]||{};
+    return (d.id+" "+(mt.summary||"")+" "+(mt.assignee||"")+" "+(mt.status||"")+" "+(mt.priority||"")+" "+(mt.resolution||"")).toLowerCase().indexOf(ql)!==-1;
+  });
+  var LIMIT=200;
+  var qr=q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  function hl(s){return esc(String(s==null?"":s)).replace(new RegExp("("+qr+")","gi"),"<mark>$1</mark>")}
+  var secM=hitMods.length?'<div class="box" style="margin-top:10px"><h3>模块 '+hitMods.length+' 个</h3><div class="scroll-box" style="max-height:260px"><table><thead><tr><th>模块</th><th>用例数</th><th>负责人</th></tr></thead><tbody>'+hitMods.slice(0,80).map(function(m){var ow=Array.isArray(m.owners)?m.owners.join(";"):Object.keys(m.owners||{}).join(";");return "<tr><td style='text-align:left'>"+hl(m.folder)+"</td><td>"+fmtN(m.total)+"</td><td>"+esc(ow)+"</td></tr>"}).join("")+'</tbody></table></div></div>':'';
+  var secR='<div class="box" style="margin-top:10px"><h3>用例 '+fmtN(hitRows.length)+' 条'+(hitRows.length>LIMIT?'(显示前 '+LIMIT+' 条,可用筛选缩小范围)':'')+'</h3><div class="scroll-box" style="max-height:420px"><table><thead><tr><th>模块路径</th><th>Test ID</th><th>标题</th><th>层级</th><th>Status</th><th>结果</th><th>缺陷数</th></tr></thead><tbody>'+hitRows.slice(0,LIMIT).map(function(r){return "<tr><td style='text-align:left'>"+hl(r.folder)+"</td><td>"+hl(r.tid||r.id)+"</td><td style='text-align:left'>"+hl((r.title||"").slice(0,80))+"</td><td>"+esc(r.prio)+"</td><td>"+esc(r.status)+"</td><td>"+esc(r.result)+"</td><td>"+((r.defs&&r.defs.length)?r.defs.length:"")+"</td></tr>"}).join("")+'</tbody></table></div></div>';
+  var secB=hitBugs.length?'<div class="box" style="margin-top:10px"><h3>缺陷 '+hitBugs.length+' 个'+(hitBugs.length>LIMIT?'(显示前 '+LIMIT+' 条)':'')+'</h3><div class="scroll-box" style="max-height:320px"><table><thead><tr><th>缺陷ID</th><th>Priority</th><th>Status</th><th>Resolution</th><th>Assignee</th><th>关联次数</th></tr></thead><tbody>'+hitBugs.slice(0,LIMIT).map(function(d){var mt=DEF_META[d.id]||{};return "<tr><td>"+bugLink(d.id)+"</td><td>"+esc(mt.priority||"")+"</td><td>"+esc(mt.status||"")+"</td><td>"+esc(mt.resolution||"")+"</td><td>"+esc(mt.assignee||"")+"</td><td>"+fmtN(d.count)+"</td></tr>"}).join("")+'</tbody></table></div></div>':'';
+  var head='<div class="box" style="border-color:#bcd3f0"><div class="summary" style="margin:0">🔍 搜索「'+esc(q)+'」→ 命中:模块 '+fmtN(hitMods.length)+' · 用例 '+fmtN(hitRows.length)+' · 缺陷 '+fmtN(hitBugs.length)+' · 搜索范围=当前数据(随筛选联动)</div></div>';
+  var body=(hitMods.length||hitRows.length||hitBugs.length)?(secM+secR+secB):'<div class="box" style="margin-top:10px"><div class="summary" style="margin:0">未找到匹配「'+esc(q)+'」的模块、用例或缺陷</div></div>';
+  document.getElementById("p9").innerHTML=head+body;
+  var t9=document.getElementById("tabP9");
+  t9.style.display="";
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+  document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active")});
+  t9.classList.add("active");
+  document.getElementById("p9").classList.add("active");
+}
+document.getElementById("btnGSearch").addEventListener("click",doGSearch);
+document.getElementById("globalSearch").addEventListener("keydown",function(e){if(e.key==="Enter")doGSearch()});
 document.getElementById("btnExport").addEventListener("click",exportExcel);
 
 document.getElementById("tabs").addEventListener("click",function(e){

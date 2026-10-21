@@ -140,8 +140,8 @@ table{border-radius:8px;overflow-anchor:none}
   <div class="ex-grid">
     <div><b>自动通过</b>:用例挂接 ≥1 个缺陷(关联 = Defects 列 ∪ BUG 表 Test Id 反查,合并去重),且这些缺陷 Status <b>全部为 Closed/关闭</b> → 该用例判为自动通过。原本已是 Passed/N/A 的不重复计数,只统计 Failed/Blocked/Untested 翻绿的用例;任一缺陷未关闭则不翻绿。明细见「自动通过」页。</div>
     <div><b>新通过率</b> = (Passed + N/A + 自动通过) ÷ 用例总数。N/A 视为不阻塞发布计入分子;对外汇报口径,顶部 KPI / 结果分析 / 导出报表统一使用。</div>
-    <div><b>通过率(剔N/A)</b> = Passed ÷ (用例总数 - N/A)。纯执行质量口径:N/A 从分母剔除且<b>不含</b>自动通过--缺陷修了但未回归确认不算通过;分母为 0 显示 -。</div>
-    <div><b>示例</b>:100 条 = Passed 60 + N/A 20 + Failed 15 + Blocked 5,其中 10 条失败用例的缺陷已全部 Closed → 自动通过 10;新通过率=(60+20+10)/100=<b>90.0%</b>;通过率(剔N/A)=60/(100-20)=<b>75.0%</b>。差距含义:还有 10 条已修未回归、10 条真失败。</div>
+    <div><b>通过率(剔N/A)</b> = (Passed + 自动通过) ÷ (用例总数 - N/A)。N/A 在<b>分子与分母同时剔除</b>:分子=真实通过+翻绿,分母=剔除 N/A 后的有效用例;与新通过率的区别仅是不再把 N/A 计入通过;分母为 0 显示 -。</div>
+    <div><b>示例</b>:100 条 = Passed 60 + N/A 20 + Failed 15 + Blocked 5,其中 10 条失败用例的缺陷已全部 Closed → 自动通过 10;新通过率=(60+20+10)/100=<b>90.0%</b>;通过率(剔N/A)=(60+10)/(100-20)=<b>87.5%</b>。剔N/A 比新通过率低的 2.5 个 pct,就是因为 20 条 N/A 不再被计为通过。</div>
   </div>
 </details>
     <div class="filter-bar">
@@ -178,7 +178,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r10";
+var APP_VER="v2026.10.21-r11";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -570,7 +570,7 @@ function renderModules(){
     var apN=(RESULT.autoPass&&RESULT.autoPass.bySub[m.folder])||0;
     var rateN=m.total?(pN+naN+apN)/m.total*100:0;
     var prDen=m.total-naN;
-    var prN=prDen>0?pN/prDen*100:-1;
+    var prN=prDen>0?(pN+apN)/prDen*100:-1;
     return{m:m,dl:dl,list:list,uniq:list.length,foreign:foreign,p:pN,na:naN,f:fN,b:bN,ap:apN,rate:rateN,pr:prN};
   });
 
@@ -612,7 +612,7 @@ function renderModules(){
     var cntCell=function(v,color){return '<td class="num" data-v="'+v+'"'+(v?' style="color:'+color+';font-weight:600"':' style="color:#c4ccd8"')+'>'+fmtN(v)+'</td>'};
     var headTr='<tr class="mod-row'+(uniq?" has-def":"")+'" data-defidx="'+m.folder+'" data-name="'+esc(m.folder).toLowerCase()+'"><td data-v="'+m.total+'"><span class="badge '+cls+'">'+m.tier+'</span></td><td><b>'+esc(m.main)+'</b> &gt; '+esc(m.sub)+'</td><td class="num" data-v="'+m.total+'">'+fmtN(m.total)+'</td>'+cntCell(x.p,"#2f7d44")+cntCell(x.na,"#6b7280")+cntCell(x.f,"#c0392b")+cntCell(x.b,"#b9770e")+cntCell(x.ap,"#0e7490")+
       '<td class="num" data-v="'+x.rate.toFixed(2)+'" style="font-weight:700;color:'+rateColor(rateTxt)+'">'+rateTxt+'</td>'+
-      (x.pr>=0?'<td class="num" data-v="'+x.pr.toFixed(2)+'" title="Passed '+fmtN(x.p)+' ÷ (总数-NA) '+fmtN(x.m.total-x.na)+'" style="font-weight:700;color:'+rateColor(prTxt)+'">'+prTxt+'</td>':'<td class="num" data-v="-1" style="color:#c4ccd8">-</td>')+
+      (x.pr>=0?'<td class="num" data-v="'+x.pr.toFixed(2)+'" title="Passed+自动通过 '+fmtN(x.p+x.ap)+' ÷ (总数-NA) '+fmtN(x.m.total-x.na)+'" style="font-weight:700;color:'+rateColor(prTxt)+'">'+prTxt+'</td>':'<td class="num" data-v="-1" style="color:#c4ccd8">-</td>')+
       bugCell+'<td style="font-size:11px">'+priStr+'</td><td><div class="bar"><div class="bar-fill" style="width:'+barW+'%"></div></div></td><td class="num" data-v="'+m.owners.length+'">'+m.owners.length+'</td></tr>';
     var detTr="";
     if(dl&&uniq){
@@ -651,7 +651,7 @@ function renderModules(){
       RATE_BUCKETS.map(function(B){return '<span class="rchk'+(MODRATES[B[0]]?" on":"")+'" data-k="'+B[0]+'">'+B[1]+'</span>'}).join("")+
       (selK.length?'<button type="button" class="ghost" id="modRateClear" style="padding:2px 10px;font-size:11px">清除区段</button>':"")+
     '</div>'+
-    '<div style="display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin-bottom:8px">'+sLegend+'<span>行内色条 = 该模块 Status 构成(悬停看数量)· 点击 Bug数列展开缺陷清单 · 新通过率=(Passed+N/A+自动通过)/总数 · 通过率(剔N/A)=Passed/(总数-N/A)</span></div>'+
+    '<div style="display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin-bottom:8px">'+sLegend+'<span>行内色条 = 该模块 Status 构成(悬停看数量)· 点击 Bug数列展开缺陷清单 · 新通过率=(Passed+N/A+自动通过)/总数 · 通过率(剔N/A)=(Passed+自动通过)/(总数-N/A)</span></div>'+
   '</div>';
 
   function th(col,label,extra){
@@ -662,7 +662,7 @@ function renderModules(){
   var S={t:0,p:0,na:0,f:0,b:0,ap:0,bg:0,cb:0,ow:{}};
   fdata.forEach(function(x){S.t+=x.m.total;S.p+=x.p;S.na+=x.na;S.f+=x.f;S.b+=x.b;S.ap+=x.ap;S.bg+=x.uniq;S.cb+=(x.dl?x.dl.cases:0);(x.m.owners||[]).forEach(function(o){S.ow[o]=1})});
   var sRateV=S.t?(S.p+S.na+S.ap)/S.t*100:0,sRateT=sRateV.toFixed(1)+"%";
-  var sDen=S.t-S.na,sPrV=sDen>0?S.p/sDen*100:-1,sPrT=sPrV>=0?sPrV.toFixed(1)+"%":"-";
+  var sDen=S.t-S.na,sPrV=sDen>0?(S.p+S.ap)/sDen*100:-1,sPrT=sPrV>=0?sPrV.toFixed(1)+"%":"-";
   function sCell(v){return '<td class="num" data-v="'+v+'">'+fmtN(v)+'</td>'}
   var sumRow='<tr id="modSumRow" style="background:#f0f6ff;font-weight:700;border-top:2px solid #bcd3f0">'+
     '<td>Σ</td>'+
@@ -1459,13 +1459,13 @@ function renderFBreak(dims,rows){
       var c={};sub.forEach(function(r){var s=r.status||"(未标)";c[s]=(c[s]||0)+1});
       var pN=c["Passed"]||0,naN=0;keys.forEach(function(s){if(/^n\/?a$/i.test(s))naN+=c[s]||0});
       var ap=apCount(sub),den=sub.length-naN;
-      return "<tr><td style='text-align:left'>"+esc(v)+"</td><td><b>"+fmtN(sub.length)+"</b></td>"+keys.map(function(s){return "<td>"+fmtN(c[s]||0)+"</td>"}).join("")+"<td>"+fmtN(ap)+"</td><td>"+(den>0?(pN/den*100).toFixed(1)+"%":"-")+"</td><td><b>"+(sub.length?((pN+naN+ap)/sub.length*100).toFixed(1)+"%":"-")+"</b></td></tr>";
+      return "<tr><td style='text-align:left'>"+esc(v)+"</td><td><b>"+fmtN(sub.length)+"</b></td>"+keys.map(function(s){return "<td>"+fmtN(c[s]||0)+"</td>"}).join("")+"<td>"+fmtN(ap)+"</td><td>"+(den>0?((pN+ap)/den*100).toFixed(1)+"%":"-")+"</td><td><b>"+(sub.length?((pN+naN+ap)/sub.length*100).toFixed(1)+"%":"-")+"</b></td></tr>";
     }).join("");
     var apT=apCount(rows);
-    body+="<tr style='background:#f0f6ff;font-weight:700'><td style='text-align:left'>合计(=当前筛选)</td><td>"+fmtN(rows.length)+"</td>"+keys.map(function(s){return "<td>"+fmtN(cnt[s]||0)+"</td>"}).join("")+"<td>"+fmtN(apT)+"</td><td>"+((rows.length-sumNA)>0?(sumP/(rows.length-sumNA)*100).toFixed(1)+"%":"-")+"</td><td>"+(rows.length?((sumP+sumNA+apT)/rows.length*100).toFixed(1)+"%":"-")+"</td></tr>";
+    body+="<tr style='background:#f0f6ff;font-weight:700'><td style='text-align:left'>合计(=当前筛选)</td><td>"+fmtN(rows.length)+"</td>"+keys.map(function(s){return "<td>"+fmtN(cnt[s]||0)+"</td>"}).join("")+"<td>"+fmtN(apT)+"</td><td>"+((rows.length-sumNA)>0?((sumP+apT)/(rows.length-sumNA)*100).toFixed(1)+"%":"-")+"</td><td>"+(rows.length?((sumP+sumNA+apT)/rows.length*100).toFixed(1)+"%":"-")+"</td></tr>";
     return "<div style='flex:1;min-width:420px;overflow:auto'><div style='font-weight:600;font-size:12px;margin-bottom:4px'>按"+esc(d.name)+"分项</div><table>"+head+body+"</table></div>";
   }).join("");
-  box.innerHTML="<div class='box' style='border-color:#bcd3f0'><div style='display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start'>"+tables+"</div><div style='font-size:11px;color:var(--muted);margin-top:6px'>* 新通过率=(Passed+N/A+自动通过)/用例数，与顶部 KPI 同口径；** 通过率(剔N/A)=Passed/(用例数-N/A)，不含自动通过。合计行 = 当前筛选结果，各选项数据可直接相加。</div></div>";
+  box.innerHTML="<div class='box' style='border-color:#bcd3f0'><div style='display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start'>"+tables+"</div><div style='font-size:11px;color:var(--muted);margin-top:6px'>* 新通过率=(Passed+N/A+自动通过)/用例数，与顶部 KPI 同口径；** 通过率(剔N/A)=(Passed+自动通过)/(用例数-N/A)，N/A 在分子分母同时剔除。合计行 = 当前筛选结果，各选项数据可直接相加。</div></div>";
 }
 document.getElementById("btnApplyFilter").onclick=function(){
   if(!COMBOS.main)return;
@@ -1562,7 +1562,8 @@ function exportExcel(){
     resKeys.forEach(function(k){row[k]=res[k]||0});
     var ms=RESULT.modStatusStats[m.folder]||{status:{}};var pst=ms.status||{};
     var pN=pst["Passed"]||0,naN1=0;Object.keys(pst).forEach(function(kk){if(/^n\/?a$/i.test(kk))naN1+=pst[kk]});
-    row["通过率(剔N/A)"]=(m.total-naN1)>0?pct(pN,m.total-naN1).toFixed(1)+"%":"-";
+    var apX=(RESULT.autoPass&&RESULT.autoPass.bySub[m.folder])||0;
+    row["通过率(剔N/A)"]=(m.total-naN1)>0?pct(pN+apX,m.total-naN1).toFixed(1)+"%":"-";
     row["负责人"]=m.owners.join(";");
     return row;
   });

@@ -155,6 +155,7 @@ table{border-radius:8px;overflow-anchor:none}
       <input id="bugTplInput" class="search-input" style="min-width:280px" placeholder="如 https://jira.xxx.com/browse/{id},{id}=缺陷编号">
       <button id="btnSaveBugTpl" class="ghost" style="padding:6px 14px;font-size:12px">保存</button>
     </div>
+    <div id="fBreak"></div>
     <div class="tabs" id="tabs">
       <div class="tab active" data-p="p1">总览</div>
       <div class="tab" data-p="p2">模块统计(含分布)</div>
@@ -175,7 +176,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r6";
+var APP_VER="v2026.10.21-r7";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -1363,6 +1364,27 @@ function populateFilter(){
 }
 
 /* ---------- 筛选串联(作用于全部页面) ---------- */
+function renderFBreak(dims,rows){
+  var box=document.getElementById("fBreak");
+  if(!box)return;
+  if(!dims||!dims.length){box.innerHTML="";return}
+  var cnt={};rows.forEach(function(r){var s=r.status||"(未标)";cnt[s]=(cnt[s]||0)+1});
+  var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]});
+  var sumP=0,sumNA=0;
+  keys.forEach(function(s){if(s==="Passed")sumP+=cnt[s];if(/^n\/?a$/i.test(s))sumNA+=cnt[s]});
+  var tables=dims.map(function(d){
+    var head="<tr><th style='text-align:left'>"+esc(d.name)+"(逐项)</th><th>用例数</th>"+keys.map(function(s){return "<th>"+esc(s)+"</th>"}).join("")+"<th>(Passed+N/A)/用例数*</th></tr>";
+    var body=d.vals.map(function(v){
+      var sub=rows.filter(function(r){return String(r[d.key]==null?"(未标)":r[d.key])===String(v)});
+      var c={};sub.forEach(function(r){var s=r.status||"(未标)";c[s]=(c[s]||0)+1});
+      var pN=c["Passed"]||0,naN=0;keys.forEach(function(s){if(/^n\/?a$/i.test(s))naN+=c[s]||0});
+      return "<tr><td style='text-align:left'>"+esc(v)+"</td><td><b>"+fmtN(sub.length)+"</b></td>"+keys.map(function(s){return "<td>"+fmtN(c[s]||0)+"</td>"}).join("")+"<td><b>"+(sub.length?pct(pN+naN,sub.length).toFixed(1)+"%":"-")+"</b></td></tr>";
+    }).join("");
+    body+="<tr style='background:#f0f6ff;font-weight:700'><td style='text-align:left'>合计(=当前筛选)</td><td>"+fmtN(rows.length)+"</td>"+keys.map(function(s){return "<td>"+fmtN(cnt[s]||0)+"</td>"}).join("")+"<td>"+(rows.length?pct(sumP+sumNA,rows.length).toFixed(1)+"%":"-")+"</td></tr>";
+    return "<div style='flex:1;min-width:420px;overflow:auto'><div style='font-weight:600;font-size:12px;margin-bottom:4px'>按"+esc(d.name)+"分项</div><table>"+head+body+"</table></div>";
+  }).join("");
+  box.innerHTML="<div class='box' style='border-color:#bcd3f0'><div style='display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start'>"+tables+"</div><div style='font-size:11px;color:var(--muted);margin-top:6px'>* 分项比率=(Passed+N/A)/用例数，未计自动通过；精确新通过率(含自动通过)见顶部 KPI。合计行 = 当前筛选结果，各选项数据可直接相加。</div></div>";
+}
 document.getElementById("btnApplyFilter").onclick=function(){
   if(!COMBOS.main)return;
   var mains=COMBOS.main.getValues();
@@ -1377,6 +1399,11 @@ document.getElementById("btnApplyFilter").onclick=function(){
   if(!filtered.length){toast("筛选后无数据,已保持不变");return}
   CURRENT_FILTER=conds.join(" & ");
   buildDataset(filtered);
+  var fdims=[];
+  if(mains[0]!=="all"&&mains.length>1)fdims.push({name:"主模块",key:"main",vals:mains});
+  if(levels[0]!=="all"&&levels.length>1)fdims.push({name:"用例层级",key:"prio",vals:levels});
+  if(stats[0]!=="all"&&stats.length>1)fdims.push({name:"Status",key:"status",vals:stats});
+  renderFBreak(fdims,filtered);
   toast(conds.length?("筛选 "+CURRENT_FILTER+" → "+filtered.length+" 条,已同步全部页面"):"已恢复全量 "+filtered.length+" 条");
 };
 
@@ -1385,6 +1412,7 @@ document.getElementById("btnClearFilters").onclick=function(){
   COMBOS.main.reset();COMBOS.level.reset();COMBOS.status.reset();
   CURRENT_FILTER="";
   buildDataset(ALL_ROWS);
+  renderFBreak([],ALL_ROWS);
   toast("已清除筛选,恢复全量数据");
 };
 

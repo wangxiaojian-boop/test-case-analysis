@@ -119,10 +119,10 @@ table{border-radius:8px;overflow-anchor:none}
 <header><h1>测试用例分析工具 <span id="verTag" style="font-size:12px;font-weight:400;opacity:.85;vertical-align:middle;background:rgba(255,255,255,.18);padding:2px 10px;border-radius:10px;margin-left:6px"></span></h1><div class="sub">拖入或选择测试用例 Excel,自动划分模块并统计用例数量(纯前端,数据不出本机)</div></header>
 <div class="wrap">
   <div id="dropzone" class="dropzone">
-    <div class="big">选择 Excel 文件</div>
-    <div class="hint">支持 .xlsx / .xls,需包含 Folder、Priority、Status 等字段</div>
+    <div class="big">选择 Excel 文件(可一次多选)</div>
+    <div class="hint">测试用例分析工具:导入测试用例表(需含 Folder/模块、Priority、Status 等列)后自动分层拆分模块并生成全套统计。支持一次同时选中用例表与 BUG 导出表(含 Jira Id 列),自动识别文件类型并关联;也支持只选用例表(BUG 信息来自 Defects 列或用例文件内 BUG sheet)。功能:模块三级分层统计、多维筛选与分项统计、缺陷关联与台账、自动通过判定、新通过率/通过率(剔N/A)、Excel 全量导出。全部解析在浏览器本地完成,数据不上传任何服务器。</div>
   </div>
-  <input type="file" id="file" accept=".xlsx,.xls" style="display:none">
+  <input type="file" id="file" accept=".xlsx,.xls" multiple style="display:none">
   <div id="toolbar" class="toolbar" style="display:none">
     <button id="btnReload">重新载入</button>
     <button id="btnExport" class="ghost">导出分析结果 Excel</button>
@@ -162,21 +162,19 @@ table{border-radius:8px;overflow-anchor:none}
       <div class="tab" data-p="p7">缺陷统计</div>
       <div class="tab" data-p="p8">自动通过</div>
       <div class="tab" data-p="p4">结果分析(含优先级)</div>
-      <div class="tab" data-p="p6">用例明细</div>
     </div>
     <div class="panel active" id="p1"></div>
     <div class="panel" id="p2"></div>
     <div class="panel" id="p3"></div>
     <div class="panel" id="p4"></div>
     <div class="panel" id="p5"></div>
-    <div class="panel" id="p6"></div>
     <div class="panel" id="p7"></div>
     <div class="panel" id="p8"></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r7";
+var APP_VER="v2026.10.21-r8";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -191,6 +189,67 @@ var STATUS_COLORS={"Passed":"#2f7d44","Failed":"#c0392b","Blocked":"#b9770e","Un
 function statusColor(s){return STATUS_COLORS[s]||"#2f80ed"}
 
 /* ---------- 载入 ---------- */
+function classifyWb(wb){
+  var isBug=false,isCase=false;
+  wb.SheetNames.forEach(function(sn){
+    try{
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:"",sheetRows:3});
+      if(!rows.length)return;
+      var h=rows[0];
+      if(["Jira Id","JiraID","Jira id","Issue Id"].some(function(k){return h[k]!==undefined&&h[k]!==null}))isBug=true;
+      if(["Folder","模块","模块路径","用例路径"].some(function(k){return h[k]!==undefined&&h[k]!==null}))isCase=true;
+    }catch(e){}
+  });
+  if(isCase)return "case";
+  if(isBug)return "bug";
+  return "unknown";
+}
+function loadFiles(fileList){
+  if(typeof XLSX==="undefined"){toast("XLSX库加载失败,请联网后刷新");return}
+  var files=Array.prototype.slice.call(fileList).filter(function(f){return /\.(xlsx|xls)$/i.test(f.name)});
+  if(!files.length){toast("请选择 .xlsx / .xls 文件");return}
+  toast("正在读取 "+files.length+" 个文件...");
+  var wbs=new Array(files.length),done=0,errs=[];
+  files.forEach(function(f,i){
+    var rd=new FileReader();
+    rd.onload=function(ev){
+      try{wbs[i]=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true})}
+      catch(err){errs.push(f.name)}
+      if(++done===files.length)finishLoad(files,wbs,errs);
+    };
+    rd.onerror=function(){errs.push(f.name);if(++done===files.length)finishLoad(files,wbs,errs)};
+    rd.readAsArrayBuffer(f);
+  });
+}
+function finishLoad(files,wbs,errs){
+  try{
+    var caseWb=null,bugWbs=[],dup=0;
+    wbs.forEach(function(wb,i){
+      if(!wb)return;
+      var t=classifyWb(wb);
+      if(t==="case"){if(!caseWb)caseWb=wb;else dup++}
+      else if(t==="bug")bugWbs.push(wb);
+    });
+    if(!caseWb){toast(errs.length?("读取失败: "+errs.join(", ")):"未找到测试用例表(需含 Folder/模块 列;含 Jira Id 列的文件会被识别为 BUG 表)");return}
+    RAW=XLSX.utils.sheet_to_json(caseWb.Sheets[caseWb.SheetNames[0]],{defval:""});
+    if(!RAW.length){toast("用例表未读到数据");return}
+    CURRENT_FILTER="";
+    DEF_META={};LINK2BUGS={};
+    try{parseBugWorkbook(caseWb)}catch(e){}
+    bugWbs.forEach(function(wb2){try{parseBugWorkbook(wb2)}catch(e){}});
+    var bugN=Object.keys(DEF_META).length;
+    analyze();
+    document.getElementById("toolbar").style.display="flex";
+    document.getElementById("main").style.display="block";
+    document.getElementById("dropzone").style.display="none";
+    var msg="分析完成,共 "+ALL_ROWS.length+" 条用例";
+    if(bugN)msg+=";BUG 库已联动 "+bugN+" 个缺陷";
+    if(files.length>1)msg+="(本次读取 "+files.length+" 个文件)";
+    var bad=errs.length+dup;
+    if(bad)msg+=";已忽略 "+bad+" 个无法识别/重复的文件";
+    toast(msg);
+  }catch(err){toast("解析失败: "+err.message);console.error(err)}
+}
 function loadFile(file){
   if(typeof XLSX==="undefined"){toast("XLSX库加载失败,请联网后刷新");return}
   var reader=new FileReader();
@@ -363,7 +422,7 @@ function buildDataset(all){
 }
 
 function renderAll(){
-  renderCards();renderOverview();renderModules();renderModStatus();renderDefects();renderAutoPass();renderResults();renderPriority();renderDetails();
+  renderCards();renderOverview();renderModules();renderModStatus();renderDefects();renderAutoPass();renderResults();renderPriority();
   updateMeta();
 }
 
@@ -1370,20 +1429,25 @@ function renderFBreak(dims,rows){
   if(!dims||!dims.length){box.innerHTML="";return}
   var cnt={};rows.forEach(function(r){var s=r.status||"(未标)";cnt[s]=(cnt[s]||0)+1});
   var keys=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]});
+  var apSet={};
+  if(RESULT&&RESULT.autoPass&&RESULT.autoPass.rows){RESULT.autoPass.rows.forEach(function(a){if(a.id)apSet[a.id]=1;if(a.tid)apSet[a.tid]=1})}
+  function apCount(sub){var n=0;sub.forEach(function(r){if((r.id&&apSet[r.id])||(r.tid&&apSet[r.tid]))n++});return n}
   var sumP=0,sumNA=0;
   keys.forEach(function(s){if(s==="Passed")sumP+=cnt[s];if(/^n\/?a$/i.test(s))sumNA+=cnt[s]});
   var tables=dims.map(function(d){
-    var head="<tr><th style='text-align:left'>"+esc(d.name)+"(逐项)</th><th>用例数</th>"+keys.map(function(s){return "<th>"+esc(s)+"</th>"}).join("")+"<th>(Passed+N/A)/用例数*</th></tr>";
+    var head="<tr><th style='text-align:left'>"+esc(d.name)+"(逐项)</th><th>用例数</th>"+keys.map(function(s){return "<th>"+esc(s)+"</th>"}).join("")+"<th>自动通过</th><th>通过率(剔N/A)**</th><th>新通过率*</th></tr>";
     var body=d.vals.map(function(v){
       var sub=rows.filter(function(r){return String(r[d.key]==null?"(未标)":r[d.key])===String(v)});
       var c={};sub.forEach(function(r){var s=r.status||"(未标)";c[s]=(c[s]||0)+1});
       var pN=c["Passed"]||0,naN=0;keys.forEach(function(s){if(/^n\/?a$/i.test(s))naN+=c[s]||0});
-      return "<tr><td style='text-align:left'>"+esc(v)+"</td><td><b>"+fmtN(sub.length)+"</b></td>"+keys.map(function(s){return "<td>"+fmtN(c[s]||0)+"</td>"}).join("")+"<td><b>"+(sub.length?pct(pN+naN,sub.length).toFixed(1)+"%":"-")+"</b></td></tr>";
+      var ap=apCount(sub),den=sub.length-naN;
+      return "<tr><td style='text-align:left'>"+esc(v)+"</td><td><b>"+fmtN(sub.length)+"</b></td>"+keys.map(function(s){return "<td>"+fmtN(c[s]||0)+"</td>"}).join("")+"<td>"+fmtN(ap)+"</td><td>"+(den>0?(pN/den*100).toFixed(1)+"%":"-")+"</td><td><b>"+(sub.length?((pN+naN+ap)/sub.length*100).toFixed(1)+"%":"-")+"</b></td></tr>";
     }).join("");
-    body+="<tr style='background:#f0f6ff;font-weight:700'><td style='text-align:left'>合计(=当前筛选)</td><td>"+fmtN(rows.length)+"</td>"+keys.map(function(s){return "<td>"+fmtN(cnt[s]||0)+"</td>"}).join("")+"<td>"+(rows.length?pct(sumP+sumNA,rows.length).toFixed(1)+"%":"-")+"</td></tr>";
+    var apT=apCount(rows);
+    body+="<tr style='background:#f0f6ff;font-weight:700'><td style='text-align:left'>合计(=当前筛选)</td><td>"+fmtN(rows.length)+"</td>"+keys.map(function(s){return "<td>"+fmtN(cnt[s]||0)+"</td>"}).join("")+"<td>"+fmtN(apT)+"</td><td>"+((rows.length-sumNA)>0?(sumP/(rows.length-sumNA)*100).toFixed(1)+"%":"-")+"</td><td>"+(rows.length?((sumP+sumNA+apT)/rows.length*100).toFixed(1)+"%":"-")+"</td></tr>";
     return "<div style='flex:1;min-width:420px;overflow:auto'><div style='font-weight:600;font-size:12px;margin-bottom:4px'>按"+esc(d.name)+"分项</div><table>"+head+body+"</table></div>";
   }).join("");
-  box.innerHTML="<div class='box' style='border-color:#bcd3f0'><div style='display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start'>"+tables+"</div><div style='font-size:11px;color:var(--muted);margin-top:6px'>* 分项比率=(Passed+N/A)/用例数，未计自动通过；精确新通过率(含自动通过)见顶部 KPI。合计行 = 当前筛选结果，各选项数据可直接相加。</div></div>";
+  box.innerHTML="<div class='box' style='border-color:#bcd3f0'><div style='display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start'>"+tables+"</div><div style='font-size:11px;color:var(--muted);margin-top:6px'>* 新通过率=(Passed+N/A+自动通过)/用例数，与顶部 KPI 同口径；** 通过率(剔N/A)=Passed/(用例数-N/A)，不含自动通过。合计行 = 当前筛选结果，各选项数据可直接相加。</div></div>";
 }
 document.getElementById("btnApplyFilter").onclick=function(){
   if(!COMBOS.main)return;
@@ -1635,14 +1699,14 @@ function bugLinkUrl(id,url){
 
 /* ---------- 事件 ---------- */
 document.getElementById("dropzone").addEventListener("click",function(){document.getElementById("file").click()});
-document.getElementById("file").addEventListener("change",function(e){if(e.target.files[0])loadFile(e.target.files[0])});
+document.getElementById("file").addEventListener("change",function(e){if(e.target.files.length)loadFiles(e.target.files);e.target.value=""});
 ["dragenter","dragover"].forEach(function(ev){
   document.getElementById("dropzone").addEventListener(ev,function(e){e.preventDefault();document.getElementById("dropzone").classList.add("drag")});
 });
 ["dragleave","drop"].forEach(function(ev){
   document.getElementById("dropzone").addEventListener(ev,function(e){e.preventDefault();document.getElementById("dropzone").classList.remove("drag")});
 });
-document.getElementById("dropzone").addEventListener("drop",function(e){var f=e.dataTransfer.files[0];if(f)loadFile(f)});
+document.getElementById("dropzone").addEventListener("drop",function(e){if(e.dataTransfer.files.length)loadFiles(e.dataTransfer.files)});
 document.getElementById("btnReload").addEventListener("click",function(){document.getElementById("file").click()});
 document.getElementById("btnPng").addEventListener("click",function(){
   var ap=document.querySelector(".panel.active");

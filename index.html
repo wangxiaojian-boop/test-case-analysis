@@ -178,7 +178,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r9";
+var APP_VER="v2026.10.21-r10";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -659,11 +659,25 @@ function renderModules(){
     return '<th class="'+cls+'" data-col="'+col+'"'+(extra||"")+">"+label+"</th>";
   }
 
+  var S={t:0,p:0,na:0,f:0,b:0,ap:0,bg:0,cb:0,ow:{}};
+  fdata.forEach(function(x){S.t+=x.m.total;S.p+=x.p;S.na+=x.na;S.f+=x.f;S.b+=x.b;S.ap+=x.ap;S.bg+=x.uniq;S.cb+=(x.dl?x.dl.cases:0);(x.m.owners||[]).forEach(function(o){S.ow[o]=1})});
+  var sRateV=S.t?(S.p+S.na+S.ap)/S.t*100:0,sRateT=sRateV.toFixed(1)+"%";
+  var sDen=S.t-S.na,sPrV=sDen>0?S.p/sDen*100:-1,sPrT=sPrV>=0?sPrV.toFixed(1)+"%":"-";
+  function sCell(v){return '<td class="num" data-v="'+v+'">'+fmtN(v)+'</td>'}
+  var sumRow='<tr id="modSumRow" style="background:#f0f6ff;font-weight:700;border-top:2px solid #bcd3f0">'+
+    '<td>Σ</td>'+
+    '<td style="text-align:left">汇总 ('+fdata.length+' 个模块'+(fdata.length!==data.length?" · 已按率段筛选":"")+')</td>'+
+    '<td class="num" data-v="'+S.t+'">'+fmtN(S.t)+'</td>'+
+    sCell(S.p)+sCell(S.na)+sCell(S.f)+sCell(S.b)+sCell(S.ap)+
+    '<td class="num" data-v="'+sRateV.toFixed(2)+'" style="color:'+rateColor(sRateT)+'">'+sRateT+'</td>'+
+    (sPrV>=0?'<td class="num" data-v="'+sPrV.toFixed(2)+'" style="color:'+rateColor(sPrT)+'">'+sPrT+'</td>':'<td class="num" data-v="-1" style="color:#c4ccd8">-</td>')+
+    '<td class="num" data-v="'+S.bg+'" title="共 '+fmtN(S.cb)+' 条用例关联缺陷">'+fmtN(S.bg)+'</td>'+
+    '<td>-</td><td></td><td class="num" data-v="'+Object.keys(S.ow).length+'">'+Object.keys(S.ow).length+'</td></tr>';
   document.getElementById("p2").innerHTML='<div class="box">'+hdr+
     '<div class="scroll-box" style="max-height:640px"><table id="modTable"><thead><tr>'+
     th(0,"规模")+th(1,"模块路径")+th(2,"用例总数")+th(3,"Passed")+th(4,"N/A")+th(5,"Failed")+th(6,"Blocked")+th(7,"自动通过")+th(8,"新通过率")+th(9,"通过率(剔N/A)")+th(10,"Bug数")+
     '<th>优先级 Top3</th><th>分布</th>'+th(14,"负责人")+
-    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    '</tr></thead><tbody>'+rows+sumRow+'</tbody></table></div></div>';
 
   document.getElementById("modDefDedup").onchange=function(){MODDEDUP=this.checked;renderModules()};
   document.querySelectorAll("#p2 .rchk").forEach(function(el){

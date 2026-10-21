@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>测试用例分析工具</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--line:#e5e9f2;--text:#1f2937;--muted:#6b7280;--brand:#2F5597;--accent:#2f80ed}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,#253f6e,#2F5597 55%,#3d6cb3);color:#fff;padding:18px 24px}
+header h1{margin:0;font-size:20px}header .sub{margin-top:4px;font-size:12px;opacity:.85}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 20px 60px}
+.dropzone{border:2px dashed #c7d2e0;border-radius:12px;background:#fff;padding:26px;text-align:center;cursor:pointer;transition:.2s;margin-top:16px}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:#f0f6ff}
+.dropzone .big{font-size:16px;font-weight:600}.dropzone .hint{font-size:12px;color:var(--muted);margin-top:6px}
+.toolbar{display:flex;gap:10px;align-items:center;margin:14px 0;flex-wrap:wrap}
+button{background:var(--accent);color:#fff;border:0;padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer}
+button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+button.ghost:hover{background:var(--brand);color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card .k{font-size:12px;color:var(--muted)}.card .v{font-size:26px;font-weight:700;margin-top:4px;color:var(--brand)}.card .d{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:4px;margin:16px 0 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{padding:9px 16px;font-size:13px;cursor:pointer;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;color:var(--muted);background:transparent}
+.tab.active{background:#fff;color:var(--brand);border-color:var(--line);font-weight:600}
+.panel{display:none}.panel.active{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.box h3{margin:0 0 10px;font-size:14px;padding-left:9px;border-left:4px solid var(--brand)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #e9edf4;padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--brand);color:#fff;font-weight:600;white-space:nowrap}
+tr:nth-child(even) td{background:#f8fafc}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.b-L{background:#fde2e2;color:#c0392b}.b-M{background:#fff0d6;color:#b9770e}.b-S{background:#e2f0e5;color:#2f7d44}
+.r-Pass{background:#e2f0e5;color:#2f7d44}.r-Fail{background:#fde2e2;color:#c0392b}.r-Warn{background:#fff0d6;color:#b9770e}.r-NA{background:#f0f4fa;color:#6b7280}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.bar{background:#e5e7eb;border-radius:4px;height:20px;position:relative}
+.bar-fill{background:linear-gradient(90deg,#2f80ed,#1f4e79);border-radius:4px;height:100%}
+.chartbox{position:relative;height:300px}.chartbox.sm{height:260px}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.3s;z-index:99}
+.filter-bar{display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.summary{background:#fff;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:8px;padding:10px 14px;font-size:12px;color:#374151;margin:12px 0;line-height:1.8}
+.rate-bar{height:24px;border-radius:4px;background:#e5e7eb;position:relative;min-width:100px}
+.rate-fill{height:100%;border-radius:4px;color:#fff;font-size:11px;padding:0 8px;display:flex;align-items:center;justify-content:flex-end}
+.scroll-box{max-height:540px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.scroll-box table{font-size:12px}
+.scroll-box thead th{position:sticky;top:0;z-index:2}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{background:#e2eaf6}
+th.sortable::after{content:" \21C5";font-size:10px;color:#aab9d6}
+th.sorted-asc::after{content:" \2191";color:#ffd76e}
+th.sorted-desc::after{content:" \2193";color:#ffd76e}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0 2px;align-items:center}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.search-input{padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;min-width:220px}
+.combo{position:relative;display:inline-block;min-width:190px}
+.combo-input{width:100%;padding:6px 26px 6px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff;outline:none}
+.combo-input:focus{border-color:var(--accent)}
+.combo-caret{position:absolute;right:9px;top:7px;color:var(--muted);font-size:10px;pointer-events:none;transition:transform .15s}
+.combo-list{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:100%;max-width:360px;max-height:280px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(31,62,121,.14);z-index:50;padding:4px}
+.combo.open .combo-list{display:block}
+.combo.open .combo-caret{transform:rotate(180deg)}
+.combo-item{padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;gap:14px;white-space:nowrap}
+.combo-item:hover{background:#f0f6ff}
+.combo-item.sel{background:#e8f0fe;color:var(--brand);font-weight:600}
+.combo-count{color:var(--muted);font-variant-numeric:tabular-nums}
+.combo-empty{padding:8px 10px;font-size:12px;color:var(--muted)}
+.combo mark{background:#fff3bf;color:inherit;border-radius:2px;padding:0 1px}
+.tree-mod{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fff;overflow:hidden}
+.tree-head{display:flex;align-items:center;padding:9px 12px;cursor:pointer;gap:4px}
+.tree-head:hover{background:#f0f6ff}
+.tree-caret{width:16px;color:var(--accent);font-size:11px;flex-shrink:0}
+.tree-subcnt{font-size:11px;color:var(--muted)}
+.tree-body{padding:4px 14px 10px 42px;border-top:1px dashed var(--line);background:#fafbfe}
+.tree-sub{display:flex;align-items:center;padding:3px 0;font-size:12px}
+.tree-sub-name{min-width:200px;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree-l2group{border-left:2px solid #edf1f8;margin-left:6px}
+.tree-l3box{padding:0 14px 4px 34px}
+.sticky-bar{position:sticky;top:0;z-index:6;background:var(--card);padding-top:2px}
+mark{background:#fff3bf;border-radius:2px;padding:0 1px;color:inherit}
+.mdef-box{background:#fbfcfe;border:1px solid #e8edf5;border-radius:8px;padding:10px 12px;margin:4px 0}
+.mdef-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0;flex-wrap:wrap}
+.mdef-id{font-weight:700;color:#c0392b;min-width:120px}
+.mdef-cases{color:#5b6472;font-size:11px}
+.buglink{color:#c0392b;text-decoration:underline;cursor:pointer}
+.buglink:hover{color:#922b21}
+.lvl3 .tree-sub-name{color:var(--muted);font-size:11px}
+.tree-caret.empty{visibility:hidden}
+.tree-sub.clickable{cursor:pointer}
+.tree-sub.clickable:hover{background:#eef4fd}
+/* -- 全局显示优化 -- */
+tr:hover td{background:#eef5fd!important}
+.card{transition:box-shadow .15s,transform .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(31,62,121,.12)}
+#filterBar,#main .filter-bar{position:sticky;top:0;z-index:55;background:#f4f6fb;padding:8px 0;margin:0;box-shadow:0 4px 10px -6px rgba(31,62,121,.25)}
+.box{transition:box-shadow .15s}
+.box:hover{box-shadow:0 4px 14px rgba(31,62,121,.07)}
+.mdef-id{white-space:nowrap}
+table{border-radius:8px;overflow-anchor:none}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#c9d4e4;border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:#a9bad3}
+::-webkit-scrollbar-track{background:transparent}
+@media print{#toolbar,#filterBar,.tabs,.toast,.dropzone,.sticky-bar .search-input{display:none!important}.panel{display:block!important;page-break-after:always}header{padding:8px 12px}.scroll-box{max-height:none!important;overflow:visible}}
+.rchk{padding:2px 12px;border:1px solid var(--line);border-radius:14px;cursor:pointer;font-size:11px;user-select:none;background:#fff;color:var(--muted);transition:.12s}
+.rchk:hover{border-color:var(--accent);color:var(--accent)}
+.rchk.on{background:#e8f0fe;color:var(--brand);border-color:#bcd2f0;font-weight:600}
+.explain{background:#fff;border:1px solid #dbe3ef;border-left:4px solid var(--brand);border-radius:8px;padding:8px 14px;margin:0 0 12px;font-size:12px}
+.explain summary{cursor:pointer;font-weight:700;color:var(--brand);user-select:none}
+.explain .ex-grid{display:grid;gap:6px;margin-top:8px;color:#374151;line-height:1.6}
+.explain b{color:#1f2d3d}
+</style>
+</head>
+<body>
+<header><h1>测试用例分析工具 <span id="verTag" style="font-size:12px;font-weight:400;opacity:.85;vertical-align:middle;background:rgba(255,255,255,.18);padding:2px 10px;border-radius:10px;margin-left:6px"></span></h1><div class="sub">拖入或选择测试用例 Excel,自动划分模块并统计用例数量(纯前端,数据不出本机)</div></header>
+<div class="wrap">
+  <div id="dropzone" class="dropzone">
+    <div class="big">选择 Excel 文件</div>
+    <div class="hint">支持 .xlsx / .xls,需包含 Folder、Priority、Status 等字段</div>
+  </div>
+  <input type="file" id="file" accept=".xlsx,.xls" style="display:none">
+  <div id="toolbar" class="toolbar" style="display:none">
+    <button id="btnReload">重新载入</button>
+    <button id="btnExport" class="ghost">导出分析结果 Excel</button>
+    <button id="btnPng" class="ghost">下载当前页图表 PNG</button>
+    <button id="btnBugFile" class="ghost">载入BUG表</button>
+    <input type="file" id="bugfile" accept=".xlsx,.xls" style="display:none">
+    <span id="meta" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
+  </div>
+  <div id="main" style="display:none">
+    <div class="cards" id="cards"></div>
+<details class="explain" id="explainBar">
+  <summary>📖 口径释义:自动通过 / 新通过率 / 通过率(剔N/A)</summary>
+  <div class="ex-grid">
+    <div><b>自动通过</b>:用例挂接 ≥1 个缺陷(关联 = Defects 列 ∪ BUG 表 Test Id 反查,合并去重),且这些缺陷 Status <b>全部为 Closed/关闭</b> → 该用例判为自动通过。原本已是 Passed/N/A 的不重复计数,只统计 Failed/Blocked/Untested 翻绿的用例;任一缺陷未关闭则不翻绿。明细见「自动通过」页。</div>
+    <div><b>新通过率</b> = (Passed + N/A + 自动通过) ÷ 用例总数。N/A 视为不阻塞发布计入分子;对外汇报口径,顶部 KPI / 结果分析 / 导出报表统一使用。</div>
+    <div><b>通过率(剔N/A)</b> = Passed ÷ (用例总数 - N/A)。纯执行质量口径:N/A 从分母剔除且<b>不含</b>自动通过--缺陷修了但未回归确认不算通过;分母为 0 显示 -。</div>
+    <div><b>示例</b>:100 条 = Passed 60 + N/A 20 + Failed 15 + Blocked 5,其中 10 条失败用例的缺陷已全部 Closed → 自动通过 10;新通过率=(60+20+10)/100=<b>90.0%</b>;通过率(剔N/A)=60/(100-20)=<b>75.0%</b>。差距含义:还有 10 条已修未回归、10 条真失败。</div>
+  </div>
+</details>
+    <div class="filter-bar">
+      <label>筛选主模块(可多选):</label>
+      <div class="combo" id="comboMain"><input class="combo-input" type="text" placeholder="输入关键字搜索..." autocomplete="off"><span class="combo-caret">&#9660;</span><div class="combo-list"></div></div>
+      <label>用例层级(可多选):</label>
+      <div class="combo" id="comboLevel"><input class="combo-input" type="text" placeholder="输入关键字搜索..." autocomplete="off"><span class="combo-caret">&#9660;</span><div class="combo-list"></div></div>
+      <label>筛选Status(可多选):</label>
+      <div class="combo" id="comboStatus"><input class="combo-input" type="text" placeholder="输入关键字搜索..." autocomplete="off"><span class="combo-caret">&#9660;</span><div class="combo-list"></div></div>
+      <button id="btnApplyFilter" style="padding:6px 14px;font-size:12px">应用</button>
+      <button id="btnClearFilters" class="ghost" style="padding:6px 14px;font-size:12px">清除筛选</button>
+      <label style="margin-left:10px;font-size:12px;color:var(--muted)">缺陷链接模板:</label>
+      <input id="bugTplInput" class="search-input" style="min-width:280px" placeholder="如 https://jira.xxx.com/browse/{id},{id}=缺陷编号">
+      <button id="btnSaveBugTpl" class="ghost" style="padding:6px 14px;font-size:12px">保存</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-p="p1">总览</div>
+      <div class="tab" data-p="p2">模块统计(含分布)</div>
+      <div class="tab" data-p="p7">缺陷统计</div>
+      <div class="tab" data-p="p8">自动通过</div>
+      <div class="tab" data-p="p4">结果分析(含优先级)</div>
+      <div class="tab" data-p="p6">用例明细</div>
+    </div>
+    <div class="panel active" id="p1"></div>
+    <div class="panel" id="p2"></div>
+    <div class="panel" id="p3"></div>
+    <div class="panel" id="p4"></div>
+    <div class="panel" id="p5"></div>
+    <div class="panel" id="p6"></div>
+    <div class="panel" id="p7"></div>
+    <div class="panel" id="p8"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var APP_VER="v2026.10.21-r5";
+document.getElementById("verTag").textContent=APP_VER;
+var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
+
+/* ---------- 基础工具 ---------- */
+function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.style.opacity=1;setTimeout(function(){t.style.opacity=0},2400)}
+function val(r,k){var v=r[k];return(v===null||v===undefined)?"":String(v).trim()}
+function firstCol(r,names){for(var i=0;i<names.length;i++){if(r[names[i]]!==undefined&&r[names[i]]!==null)return names[i]}return names[0]}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function pct(n,base){return base?(n/base*100):0}
+
+var STATUS_COLORS={"Passed":"#2f7d44","Failed":"#c0392b","Blocked":"#b9770e","Untested":"#95a5a6","N/A":"#bdc3c7","(未标)":"#d5d8dc"};
+function statusColor(s){return STATUS_COLORS[s]||"#2f80ed"}
+
+/* ---------- 载入 ---------- */
+function loadFile(file){
+  if(typeof XLSX==="undefined"){toast("XLSX库加载失败,请联网后刷新");return}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:"array",cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      RAW=XLSX.utils.sheet_to_json(ws,{defval:""});
+      if(!RAW.length){toast("未读到数据");return}
+      CURRENT_FILTER="";
+      var bugN=0;try{bugN=parseBugWorkbook(wb)}catch(e){}
+      analyze();
+      document.getElementById("toolbar").style.display="flex";
+      document.getElementById("main").style.display="block";
+      document.getElementById("dropzone").style.display="none";
+      toast("分析完成,共 "+ALL_ROWS.length+" 条"+(bugN?(";已联动 BUG 库 "+bugN+" 个缺陷"):""));
+    }catch(err){toast("解析失败: "+err.message);console.error(err)}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function analyze(){
+  var folderKey=firstCol(RAW[0],["Folder","模块","模块路径","用例路径"]);
+  var prioKey=firstCol(RAW[0],["Priority","优先级","用例层级"]);
+  var resultKey=firstCol(RAW[0],["测试结果","Result","test_result"]);
+  var statusKey=firstCol(RAW[0],["Status"]);
+  var idKey=firstCol(RAW[0],["Case ID","用例编号","ID"]);
+  var tidKey=firstCol(RAW[0],["Test ID","测试编号"]);
+  var titleKey=firstCol(RAW[0],["Title","用例标题","Summary"]);
+  var ownerKey=firstCol(RAW[0],["Case Owner","用例负责人","Owner"]);
+  var defectKey=firstCol(RAW[0],["Defects","缺陷","关联缺陷","Bugs"]);
+
+  var folderCounts={};
+  RAW.forEach(function(r){
+    var f=val(r,folderKey);
+    var parts=f.split(">");
+    var main=parts[0]?parts[0].trim():"(空)";
+    folderCounts[main]=(folderCounts[main]||0)+1;
+  });
+
+  ALL_ROWS=RAW.map(function(r){
+    var folder=val(r,folderKey);
+    var parts=folder.split(">").map(function(p){return p.trim()}).filter(Boolean);
+    var main=parts[0]||"(空)";
+    var sub=parts[1]||"(空)";
+    var cnt=folderCounts[main]||0;
+    var tier=cnt>=1000?"L":cnt>=200?"M":"S";
+    return{
+      id:val(r,idKey),tid:val(r,tidKey),title:val(r,titleKey),folder:folder,main:main,sub:sub,tier:tier,
+      prio:val(r,prioKey),result:val(r,resultKey)||val(r,statusKey),status:val(r,statusKey),owner:val(r,ownerKey),
+      defs:val(r,defectKey).split(/[,;,;\r\n]+/).map(function(x){return x.trim()}).filter(Boolean)
+    };
+  });
+
+  populateFilter();
+  buildDataset(ALL_ROWS);
+}
+
+/* ---------- 聚合计算(支持筛选后的子集) ---------- */
+function isClosedBug(id){var m=DEF_META[id];return !!(m&&/clos|关闭/i.test(m.status||""))}
+/* 用例↔缺陷关联:测试表 Defects 列 ∪ BUG表 Test Id 关联 */
+function rowDefs(r){
+  var d=r.defs||[];
+  if(!r.tid||!LINK2BUGS[r.tid])return d;
+  var out=d.slice(),lk=LINK2BUGS[r.tid];
+  for(var k in lk){if(out.indexOf(k)===-1)out.push(k)}
+  return out;
+}
+function rowAutoPass(r){var d=rowDefs(r);return !!(d.length>0&&d.every(isClosedBug))}
+
+function buildDataset(all){
+  var modStats={},modResults={},modStatusStats={},topStats={},topStatusStats={};
+  var resStats={},priStats={},statusStats={},tierStats={L:0,M:0,S:0};
+  var modDefStats={},defOccur=0,globalDefs={},defModules={},modDefList={};
+  var autoPassRows=[],autoPassByMain={},autoPassBySub={},autoPassAll=0,autoPassExtra=0,autoBugs={};
+  var linkCases=0,linkExtra=0;
+
+  all.forEach(function(r){
+    var key=r.main+" > "+r.sub;
+    // 二级模块统计
+    if(!modStats[key])modStats[key]={main:r.main,sub:r.sub,folder:key,total:0,prius:{},owners:{},tier:r.tier};
+    var m=modStats[key];m.total++;
+    m.prius[r.prio]=(m.prius[r.prio]||0)+1;
+    if(r.owner)m.owners[r.owner]=true;
+    // 二级模块 result 交叉
+    if(!modResults[key])modResults[key]={main:r.main,sub:r.sub,folder:key,total:0,res:{},tier:r.tier};
+    modResults[key].total++;
+    var rv=r.result||"(未执行)";
+    modResults[key].res[rv]=(modResults[key].res[rv]||0)+1;
+    // 二级模块 status 交叉
+    if(!modStatusStats[key])modStatusStats[key]={main:r.main,sub:r.sub,folder:key,total:0,status:{},tier:r.tier};
+    modStatusStats[key].total++;
+    var sv=r.status||"(未标)";
+    modStatusStats[key].status[sv]=(modStatusStats[key].status[sv]||0)+1;
+    // 主模块统计
+    if(!topStats[r.main])topStats[r.main]={main:r.main,total:0,prius:{},submods:{}};
+    topStats[r.main].total++;
+    topStats[r.main].prius[r.prio]=(topStats[r.main].prius[r.prio]||0)+1;
+    topStats[r.main].submods[r.sub]=true;
+    // 主模块 status 交叉
+    if(!topStatusStats[r.main])topStatusStats[r.main]={main:r.main,total:0,status:{}};
+    topStatusStats[r.main].total++;
+    topStatusStats[r.main].status[sv]=(topStatusStats[r.main].status[sv]||0)+1;
+    // 全局
+    resStats[rv]=(resStats[rv]||0)+1;
+    var pv=r.prio||"(未标)";priStats[pv]=(priStats[pv]||0)+1;
+    statusStats[sv]=(statusStats[sv]||0)+1;
+    tierStats[r.tier]++;
+    // 自动通过:关联缺陷全部 Closed
+    if(rowAutoPass(r)){
+      autoPassAll++;
+      autoPassByMain[r.main]=(autoPassByMain[r.main]||0)+1;
+      autoPassBySub[key]=(autoPassBySub[key]||0)+1;
+      if(!/^(passed|n\/?a)/i.test(rv)){
+        autoPassExtra++;autoPassRows.push(r);
+        rowDefs(r).forEach(function(dv){autoBugs[dv]=true});
+      }
+    }
+    // 缺陷统计(用例 Defects 列 ∪ BUG表 Test Id 关联)
+    var rdefs=rowDefs(r);
+    if(r.tid&&LINK2BUGS[r.tid]){linkCases++;linkExtra+=rdefs.length-(r.defs||[]).length}
+    if(rdefs.length){
+      if(!modDefStats[r.main])modDefStats[r.main]={main:r.main,defCases:0,ids:{},occur:0};
+      var dsm=modDefStats[r.main];
+      dsm.defCases++;
+      var mdl=modDefList[key]||(modDefList[key]={ids:{},occur:0,cases:0});
+      mdl.cases++;
+      rdefs.forEach(function(dv){
+        dsm.ids[dv]=true;dsm.occur++;defOccur++;
+        globalDefs[dv]=(globalDefs[dv]||0)+1;
+        if(!defModules[dv])defModules[dv]={};
+        defModules[dv][r.main]=true;
+        var e=mdl.ids[dv]||(mdl.ids[dv]={n:0,cases:[]});
+        e.n++;
+        e.cases.push({id:r.tid||r.id,cid:r.id,title:(r.title||"").slice(0,60),status:r.status||""});
+      });
+    }
+  });
+
+  var mods=Object.values(modStats);
+  mods.forEach(function(m){var owners=[];for(var k in m.owners)owners.push(k);m.owners=owners});
+
+  var topStatsArr=[];
+  for(var k in topStats){var tm=topStats[k];tm.submods=Object.keys(tm.submods).length;topStatsArr.push(tm)}
+  topStatsArr.sort(function(a,b){return b.total-a.total});
+
+  // 缺陷聚合结果
+  var defList=Object.keys(modDefStats).map(function(dk){
+    var dm=modDefStats[dk];
+    var uniq=Object.keys(dm.ids).length;
+    var mTotal=topStats[dk]?topStats[dk].total:0;
+    return{main:dk,total:mTotal,defCases:dm.defCases,defects:uniq,occur:dm.occur,density:mTotal?uniq/mTotal*100:0};
+  });
+  defList.sort(function(a,b){return b.defects-a.defects});
+  var topDefects=Object.keys(globalDefs).map(function(dv){
+    return{id:dv,count:globalDefs[dv],mods:Object.keys(defModules[dv]||{}).length};
+  }).sort(function(a,b){return b.count-a.count});
+  var defStats={list:defList,unique:Object.keys(globalDefs).length,occur:defOccur,topDefects:topDefects};
+
+  RESULT={
+    all:all,mods:mods,topStats:topStatsArr,
+    resStats:resStats,priStats:priStats,statusStats:statusStats,tierStats:tierStats,
+    modResults:modResults,modStatusStats:modStatusStats,topStatusStats:topStatusStats,
+    modDefList:modDefList,
+    defStats:defStats,
+    linkStats:{cases:linkCases,extraDefs:linkExtra},
+    autoPass:{rows:autoPassRows,extra:autoPassExtra,all:autoPassAll,byMain:autoPassByMain,bySub:autoPassBySub,bugs:Object.keys(autoBugs).length}
+  };
+  renderAll();
+}
+
+function renderAll(){
+  renderCards();renderOverview();renderModules();renderModStatus();renderDefects();renderAutoPass();renderResults();renderPriority();renderDetails();
+  updateMeta();
+}
+
+function updateMeta(){
+  var base="已载入 "+ALL_ROWS.length+" 条";
+  var shown=RESULT?RESULT.all.length:0;
+  document.getElementById("meta").textContent=(CURRENT_FILTER?(base+" · 筛选中: "+CURRENT_FILTER+" → "+shown+" 条(已同步全部页面)"):base)+" · "+APP_VER;
+}
+
+/* ---------- 顶部 KPI ---------- */
+function passNum(resStats,extra){
+  var n=0;
+  Object.keys(resStats).forEach(function(k){
+    if(/passed/i.test(k)||/^n\/?a$/i.test(k))n+=resStats[k];
+  });
+  return n+(extra||0);
+}
+function getPassRate(){
+  var extra=RESULT.autoPass?RESULT.autoPass.extra:0;
+  return pct(passNum(RESULT.resStats,extra),RESULT.all.length).toFixed(1)+"%";
+}
+
+function countTierMods(t){
+  var n=0;
+  RESULT.topStats.forEach(function(m){
+    var tier=m.total>=1000?"L":m.total>=200?"M":"S";
+    if(tier===t)n++;
+  });
+  return n;
+}
+
+function renderCards(){
+  var items=[
+    {k:"用例总数",v:RESULT.all.length,d:"共 "+RESULT.mods.length+" 个二级模块"},
+    {k:"主模块数",v:RESULT.topStats.length,d:"大型 "+countTierMods("L")+" / 中型 "+countTierMods("M")+" / 小型 "+countTierMods("S")},
+    {k:"已通过",v:RESULT.resStats["Passed"]||0,d:"新通过率 "+getPassRate()+"(含N/A+自动通过)"},
+    {k:"失败",v:RESULT.resStats["Failed"]||0,d:"失败率 "+pct(RESULT.resStats["Failed"]||0,RESULT.all.length).toFixed(1)+"%"},
+    {k:"自动通过",v:(RESULT.autoPass?RESULT.autoPass.extra:0),d:"关联缺陷全部 Closed 翻绿"},
+    {k:"未执行",v:(RESULT.resStats["Untested"]||0)+(RESULT.resStats["(未执行)"]||0)+(RESULT.resStats["(未标)"]||0),d:"含 N/A 与未标"}
+  ];
+  document.getElementById("cards").innerHTML=items.map(function(i){
+    return '<div class="card"><div class="k">'+i.k+'</div><div class="v">'+i.v+'</div><div class="d">'+i.d+'</div></div>';
+  }).join("");
+}
+
+/* ---------- 总览 ---------- */
+function renderOverview(){
+  var total=RESULT.all.length;
+  var priItems=Object.keys(RESULT.priStats).sort(function(a,b){return RESULT.priStats[b]-RESULT.priStats[a]});
+  var resItems=Object.keys(RESULT.resStats).sort(function(a,b){return RESULT.resStats[b]-RESULT.resStats[a]});
+  var sKeys=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]});
+  var top10=RESULT.topStats.slice(0,10);
+  var tierItems=[["大型(L ≥1000)",RESULT.tierStats.L],["中型(M 200-999)",RESULT.tierStats.M],["小型(S <200)",RESULT.tierStats.S]];
+
+  function barCell(cnt){
+    var w=pct(cnt,total).toFixed(1);
+    return '<div class="bar" style="height:14px;min-width:70px"><div class="bar-fill" style="width:'+w+'%"></div></div>';
+  }
+  var resTable='<table><thead><tr><th>结果</th><th>数量</th><th>占比</th><th style="min-width:120px">分布</th></tr></thead><tbody>'+
+    resItems.map(function(r){
+      var n=RESULT.resStats[r];
+      var bcls=r==="Passed"?"r-Pass":r==="Failed"?"r-Fail":r==="Blocked"?"r-Warn":"r-NA";
+      return '<tr><td><span class="badge '+bcls+'">'+esc(r)+'</span></td><td class="num">'+n+'</td><td class="num">'+pct(n,total).toFixed(1)+'%</td><td>'+barCell(n)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+
+  var priTable='<table><thead><tr><th>优先级</th><th>数量</th><th>占比</th><th style="min-width:120px">分布</th></tr></thead><tbody>'+
+    priItems.map(function(p){
+      var n=RESULT.priStats[p];
+      return '<tr><td>'+esc(p)+'</td><td class="num">'+n+'</td><td class="num">'+pct(n,total).toFixed(1)+'%</td><td>'+barCell(n)+'</td></tr>';
+    }).join("")+'</tbody></table>';
+
+  document.getElementById("p1").innerHTML=
+    '<div class="box"><h3>模块分布 · 主模块用例 Top10</h3><div class="chartbox" style="height:300px"><canvas id="cOvMod"></canvas></div></div>'+
+    '<div class="box" style="margin-top:16px"><h3>优先级分布</h3>'+priTable+'</div>'+
+    '<div class="box" style="margin-top:16px"><h3>用例规模层级</h3>'+toTable(["层级","模块数","用例数","占比","管理建议"],[
+        ["🔴 大型 (≥1000条)",countTierMods("L"),RESULT.tierStats.L,pct(RESULT.tierStats.L,total).toFixed(1)+"%","重点排期、拆分任务"],
+        ["🟡 中型 (200-999)",countTierMods("M"),RESULT.tierStats.M,pct(RESULT.tierStats.M,total).toFixed(1)+"%","正常排期、关注交叉依赖"],
+        ["🟢 小型 (<200)",countTierMods("S"),RESULT.tierStats.S,pct(RESULT.tierStats.S,total).toFixed(1)+"%","快速验证、可作冒烟"]])+'</div>'+
+    '<div class="summary" style="margin-top:16px"><b>提示:</b>顶部筛选(主模块 / 用例层级 / Status)应用后,本页及所有其他页面均会同步刷新。</div>';
+
+  drawBar("cOvMod",top10.map(function(m){return m.main}),top10.map(function(m){return m.total}),"用例数","#2f80ed");
+}
+
+/* ---------- 模块统计(二级模块) ---------- */
+function rateColor(v){var n=parseFloat(v);if(isNaN(n))return "#9ca3af";return n>80?"#2f7d44":n>=50?"#b9770e":"#c0392b"}
+var MODDEDUP=false;
+var MODMSORT={col:2,desc:true};
+var MODRATES={};
+var RATE_BUCKETS=[["lt50","<50%",function(r){return r<50}],["50_80","50~80%",function(r){return r>=50&&r<80}],["80_95","80~95%",function(r){return r>=80&&r<95}],["ge95","≥95%",function(r){return r>=95}]];
+var GRAN="sub";
+function granSeg(){
+  var g=GRAN==="main"?"main":"sub";
+  function b(k,label){return '<button type="button" class="ghost gran" data-g="'+k+'" style="border:0;border-radius:0;padding:3px 10px;font-size:11px;'+(g===k?'background:var(--brand);color:#fff':'color:var(--brand);background:#fff')+'">'+label+'</button>'}
+  return '<div style="display:flex;border:1px solid var(--brand);border-radius:6px;overflow:hidden">'+b("main","主模块视图")+b("sub","二级模块视图")+'</div>';
+}
+function showGran(g){
+  GRAN=g;
+  document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active")});
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+  var tab=document.querySelector('.tab[data-p="p2"]');if(tab)tab.classList.add("active");
+  var panel=document.getElementById(g==="main"?"p3":"p2");
+  if(panel)panel.classList.add("active");
+  if(g==="main")renderModStatus();
+}
+function renderModules(){
+  var mods=RESULT.mods;
+  var mx=1;mods.forEach(function(m){if(m.total>mx)mx=m.total});
+  // 去重模式:每个缺陷只归属"关联用例数最多"的模块
+  var dedupOwner=null;
+  if(MODDEDUP){
+    dedupOwner={};
+    Object.keys(RESULT.modDefList).forEach(function(folder){
+      var mdl=RESULT.modDefList[folder];
+      Object.keys(mdl.ids).forEach(function(id){
+        var n=mdl.ids[id].n;
+        var cur=dedupOwner[id];
+        if(!cur||n>cur.n)dedupOwner[id]={folder:folder,n:n};
+      });
+    });
+  }
+
+  // 预计算每模块的缺陷归属与统计
+  var data=mods.map(function(m){
+    var dl=RESULT.modDefList[m.folder];
+    var list=dl?Object.keys(dl.ids).map(function(kk){return{id:kk,n:dl.ids[kk].n,cases:dl.ids[kk].cases}}):[];
+    var foreign=0;
+    if(dedupOwner&&list.length){
+      var mine=[];
+      list.forEach(function(d){if(dedupOwner[d.id].folder===m.folder)mine.push(d);else foreign++});
+      list=mine;
+    }
+    list.sort(function(a,b){return b.n-a.n});
+    var ms2=RESULT.modStatusStats[m.folder];var st2=ms2?ms2.status:{};
+    var pN=0,naN=0,fN=0,bN=0;
+    Object.keys(st2).forEach(function(s){var lv=s.toLowerCase();
+      if(lv==="passed")pN+=st2[s];
+      else if(/^n\/?a/.test(lv))naN+=st2[s];
+      else if(lv==="failed")fN+=st2[s];
+      else if(lv==="blocked")bN+=st2[s];
+    });
+    var apN=(RESULT.autoPass&&RESULT.autoPass.bySub[m.folder])||0;
+    var rateN=m.total?(pN+naN+apN)/m.total*100:0;
+    var prDen=m.total-naN;
+    var prN=prDen>0?pN/prDen*100:-1;
+    return{m:m,dl:dl,list:list,uniq:list.length,foreign:foreign,p:pN,na:naN,f:fN,b:bN,ap:apN,rate:rateN,pr:prN};
+  });
+
+  // 排序
+  function numv(x,c){
+    switch(c){
+      case 3:return x.p;case 4:return x.na;case 5:return x.f;case 6:return x.b;
+      case 7:return x.ap;case 8:return x.rate;case 9:return x.pr<0?-1:x.pr;case 10:return x.uniq;case 14:return x.m.owners.length;
+      default:return x.m.total;
+    }
+  }
+  function cmp(x,y){
+    var d=MODMSORT.desc?-1:1;
+    if(MODMSORT.col===1){var va=x.m.folder.toLowerCase(),vb=y.m.folder.toLowerCase();return va<vb?-d:va>vb?d:0}
+    return (numv(x,MODMSORT.col)-numv(y,MODMSORT.col))*d;
+  }
+  data.sort(cmp);
+
+  // 新通过率区段多选筛选(N/A + Passed + 自动通过)
+  var selK=Object.keys(MODRATES).filter(function(k){return MODRATES[k]});
+  var fdata=data;
+  if(selK.length){
+    fdata=data.filter(function(x){
+      for(var i=0;i<RATE_BUCKETS.length;i++){var B=RATE_BUCKETS[i];if(MODRATES[B[0]]&&B[2](x.rate))return true}
+      return false;
+    });
+  }
+
+  var rows=fdata.map(function(x){
+    var m=x.m,list=x.list,uniq=x.uniq,foreign=x.foreign,dl=x.dl;
+    var cls=m.tier==="L"?"b-L":m.tier==="M"?"b-M":"b-S";
+    var priStr=Object.keys(m.prius).sort(function(a,b){return m.prius[b]-m.prius[a]}).slice(0,3).map(function(p){return esc(p)+":"+m.prius[p]}).join("  ");
+    var barW=(m.total/mx*100).toFixed(0);
+    var ms=RESULT.modStatusStats[m.folder];
+    var tip=uniq&&foreign?("去重后归属本模块 "+uniq+" 个,另有 "+foreign+" 个已归属其他模块"):"";
+    var bugCell=uniq?'<td class="num" data-v="'+uniq+'" style="white-space:nowrap"><span class="mdef-caret" style="cursor:pointer;margin-right:2px">&#9654;</span><span class="badge" style="background:#fde2e2;color:#c0392b" title="'+esc(tip)+'">'+uniq+'</span></td>':(foreign?'<td class="num" data-v="0" style="color:#bbb" title="'+foreign+' 个关联缺陷按去重规则已归属其他模块">-</td>':'<td class="num" data-v="0" style="color:#bbb">-</td>');
+    var rateTxt=x.rate.toFixed(1)+"%";
+    var prTxt=x.pr>=0?x.pr.toFixed(1)+"%":"-";
+    var cntCell=function(v,color){return '<td class="num" data-v="'+v+'"'+(v?' style="color:'+color+';font-weight:600"':' style="color:#c4ccd8"')+'>'+fmtN(v)+'</td>'};
+    var headTr='<tr class="mod-row'+(uniq?" has-def":"")+'" data-defidx="'+m.folder+'" data-name="'+esc(m.folder).toLowerCase()+'"><td data-v="'+m.total+'"><span class="badge '+cls+'">'+m.tier+'</span></td><td><b>'+esc(m.main)+'</b> &gt; '+esc(m.sub)+'</td><td class="num" data-v="'+m.total+'">'+fmtN(m.total)+'</td>'+cntCell(x.p,"#2f7d44")+cntCell(x.na,"#6b7280")+cntCell(x.f,"#c0392b")+cntCell(x.b,"#b9770e")+cntCell(x.ap,"#0e7490")+
+      '<td class="num" data-v="'+x.rate.toFixed(2)+'" style="font-weight:700;color:'+rateColor(rateTxt)+'">'+rateTxt+'</td>'+
+      (x.pr>=0?'<td class="num" data-v="'+x.pr.toFixed(2)+'" title="Passed '+fmtN(x.p)+' ÷ (总数-NA) '+fmtN(x.m.total-x.na)+'" style="font-weight:700;color:'+rateColor(prTxt)+'">'+prTxt+'</td>':'<td class="num" data-v="-1" style="color:#c4ccd8">-</td>')+
+      bugCell+'<td style="font-size:11px">'+priStr+'</td><td><div class="bar"><div class="bar-fill" style="width:'+barW+'%"></div></div></td><td class="num" data-v="'+m.owners.length+'">'+m.owners.length+'</td></tr>';
+    var detTr="";
+    if(dl&&uniq){
+      var maxN=list[0].n||1;
+      var items=list.map(function(dv){
+        var w=Math.max(3,dv.n/maxN*100).toFixed(0);
+        var chips=dv.cases.map(function(c){
+          var sc=c.status?statusColor(c.status):"#9ca3af";
+          var tip=(c.id!==c.cid?"Test ID: "+c.id+" · Case ID: "+c.cid:"Test ID: "+c.id)+" · "+c.title+(c.status?" · "+c.status:"");
+          return '<span title="'+esc(tip)+'"><span class="legend-dot" style="background:'+sc+'"></span>'+esc(c.id)+'</span>';
+        });
+        var cs=chips.slice(0,5).join(" ");
+        if(chips.length>5)cs+=' <span class="more-cases" style="display:none">'+chips.slice(5).join(" ")+'</span> <button type="button" class="ghost case-toggle" data-hidden="'+(chips.length-5)+'" style="padding:1px 8px;font-size:11px">展开全部 '+chips.length+' 条 ▾</button>';
+        return '<div class="mdef-item">'+bugLink(dv.id)+'<span class="badge" style="background:#fde2e2;color:#c0392b;min-width:38px;text-align:center">'+dv.n+' 用例</span><div class="bar" style="height:8px;width:80px;flex-shrink:0"><div class="bar-fill" style="width:'+w+'%;background:#e67e22"></div></div><span class="mdef-cases">'+cs+'</span></div>';
+      }).join("");
+      var foreignNote=foreign?'<div class="mdef-item" style="color:var(--muted)">☁ 另有 '+foreign+' 个关联缺陷按去重规则已归属其他模块(悬停 Bug数列可看提示)</div>':"";
+      detTr='<tr class="mod-det" style="display:none"><td></td><td colspan="15"><div class="mdef-box"><div style="font-weight:700;font-size:12px;margin-bottom:6px">🐞 '+esc(m.folder)+' 的 Bug 列表('+uniq+' 个'+(MODDEDUP?",去重后":",按关联用例数排序")+' · 合计 '+dl.occur+' 次引用 · '+dl.cases+' 条用例关联缺陷)</div>'+items+foreignNote+'</div></td></tr>';
+    }
+    return headTr+detTr;
+  }).join("");
+
+  var sLegend=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]}).map(function(s){
+    return '<span><span class="legend-dot" style="background:'+statusColor(s)+'"></span>'+esc(s)+'</span>';
+  }).join("");
+
+  var totalUniq=RESULT.defStats.unique;
+  var hdr='<div class="sticky-bar">'+
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<h3 style="margin:0">二级模块用例统计 ('+fdata.length+(selK.length?'/'+data.length:'')+' 个) · 缺陷总数(全局去重) '+fmtN(totalUniq)+(MODDEDUP?" · ✂ 已开启跨模块去重":"")+'</h3>'+
+      '<input id="modTableSearch" class="search-input" placeholder="🔍 搜索模块路径..." style="margin-left:auto">'+
+      '<label style="font-size:12px;color:var(--muted);cursor:pointer;user-select:none"><input type="checkbox" id="modDefDedup"'+(MODDEDUP?" checked":"")+'> Bug跨模块去重</label>'+
+      granSeg()+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<span style="font-size:11px;color:var(--muted)">新通过率区段(可多选 · 含N/A+自动通过):</span>'+
+      RATE_BUCKETS.map(function(B){return '<span class="rchk'+(MODRATES[B[0]]?" on":"")+'" data-k="'+B[0]+'">'+B[1]+'</span>'}).join("")+
+      (selK.length?'<button type="button" class="ghost" id="modRateClear" style="padding:2px 10px;font-size:11px">清除区段</button>':"")+
+    '</div>'+
+    '<div style="display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin-bottom:8px">'+sLegend+'<span>行内色条 = 该模块 Status 构成(悬停看数量)· 点击 Bug数列展开缺陷清单 · 新通过率=(Passed+N/A+自动通过)/总数 · 通过率(剔N/A)=Passed/(总数-N/A)</span></div>'+
+  '</div>';
+
+  function th(col,label,extra){
+    var cls="sortable"+(MODMSORT.col===col?(MODMSORT.desc?" sorted-desc":" sorted-asc"):"");
+    return '<th class="'+cls+'" data-col="'+col+'"'+(extra||"")+">"+label+"</th>";
+  }
+
+  document.getElementById("p2").innerHTML='<div class="box">'+hdr+
+    '<div class="scroll-box" style="max-height:640px"><table id="modTable"><thead><tr>'+
+    th(0,"规模")+th(1,"模块路径")+th(2,"用例总数")+th(3,"Passed")+th(4,"N/A")+th(5,"Failed")+th(6,"Blocked")+th(7,"自动通过")+th(8,"新通过率")+th(9,"通过率(剔N/A)")+th(10,"Bug数")+
+    '<th>优先级 Top3</th><th>分布</th>'+th(14,"负责人")+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+
+  document.getElementById("modDefDedup").onchange=function(){MODDEDUP=this.checked;renderModules()};
+  document.querySelectorAll("#p2 .rchk").forEach(function(el){
+    el.onclick=function(){var k=el.getAttribute("data-k");MODRATES[k]=!MODRATES[k];renderModules()};
+  });
+  var rcBtn=document.getElementById("modRateClear");
+  if(rcBtn)rcBtn.onclick=function(){MODRATES={};renderModules()};
+  document.getElementById("modTableSearch").oninput=function(){
+    var q=this.value.trim().toLowerCase();
+    var tbody=document.querySelector("#modTable tbody");
+    if(!tbody)return;
+    var trs=tbody.querySelectorAll("tr.mod-row");
+    for(var i=0;i<trs.length;i++){
+      var tr=trs[i];
+      var hit=!q||tr.getAttribute("data-name").indexOf(q)!==-1;
+      tr.style.display=hit?"":"none";
+      var det=tr.nextElementSibling;
+      if(det&&det.classList.contains("mod-det")){
+        det.style.display=(hit&&det.style.display==="table-row")?"table-row":"none";
+      }
+    }
+  };
+  document.querySelectorAll("#modTable th.sortable").forEach(function(thh){
+    thh.onclick=function(){
+      var col=parseInt(thh.getAttribute("data-col"),10);
+      var desc=!(MODMSORT.col===col&&!MODMSORT.desc);
+      MODMSORT={col:col,desc:desc};
+      var q=document.getElementById("modTableSearch");
+      var keepQ=q?q.value:"";
+      renderModules();
+      var q2=document.getElementById("modTableSearch");
+      if(keepQ&&q2&&q2.oninput){q2.value=keepQ;q2.oninput.call(q2)}
+    };
+  });
+  document.querySelectorAll("#p2 tr.mod-row.has-def").forEach(function(tr){
+    tr.onclick=function(e){
+      if(e&&e.target&&e.target.tagName==="A")return;
+      var det=tr.nextElementSibling;
+      if(!det||!det.classList.contains("mod-det"))return;
+      var open=det.style.display!=="none";
+      det.style.display=open?"none":"table-row";
+      var c=tr.querySelector(".mdef-caret");
+      if(c)c.innerHTML=open?"&#9654;":"&#9660;";
+    };
+  });
+  document.querySelectorAll("#p2 .case-toggle").forEach(function(btn){
+    btn.onclick=function(){
+      var box=btn.parentNode;
+      var span=box?box.querySelector(".more-cases"):null;
+      if(!span)return;
+      var open=span.style.display!=="none";
+      span.style.display=open?"none":"inline";
+      btn.textContent=open?("展开全部 "+(parseInt(btn.getAttribute("data-hidden"),10)+5)+" 条 ▾"):"收起 ▴";
+    };
+  });
+}
+
+/* ---------- 模块分布(主模块 × Status) ---------- */
+function executedFor(m){
+  var skip=0;
+  ["Untested","N/A","(未标)","(未执行)"].forEach(function(s){skip+=(m.status[s]||0)});
+  return m.total-skip;
+}
+
+function renderModStatus(){
+  var total=RESULT.all.length;
+  var sKeys=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]});
+  var arr=Object.values(RESULT.topStatusStats);
+  arr.sort(function(a,b){return b.total-a.total});
+
+  // KPI
+  var executedAll=0;arr.forEach(function(m){executedAll+=executedFor(m)});
+  var kpiSummary='<b>模块分布:</b>'+arr.length+' 个主模块 · 共 '+fmtN(total)+' 条 · 已执行 '+fmtN(executedAll)+' ('+pct(executedAll,total).toFixed(1)+'%) · 新通过率=(Passed+N/A+自动通过)/总数 · 点右上「二级模块视图」切回统计明细';
+
+  // Top15 堆叠横向图
+  var ds15=arr.slice(0,15);
+  var datasets=sKeys.map(function(s){
+    return{label:s,data:ds15.map(function(m){return m.status[s]||0}),backgroundColor:statusColor(s)};
+  });
+
+  // 明细表
+  var rowsHtml=arr.map(function(m){
+    var executed=executedFor(m);
+    var naN=0;Object.keys(m.status).forEach(function(kk){if(/^n\/?a$/i.test(kk))naN+=m.status[kk]});
+    var passN=(m.status["Passed"]||0)+naN+((RESULT.autoPass&&RESULT.autoPass.byMain[m.main])||0);
+    var execRate=pct(executed,m.total);
+    var passRate=pct(passN,m.total);
+    var cls=m.total>=1000?"b-L":m.total>=200?"b-M":"b-S";
+    var stCells=sKeys.map(function(s){
+      var n=m.status[s]||0;
+      var badgeCls=s==="Passed"?"r-Pass":s==="Failed"?"r-Fail":s==="Blocked"?"r-Warn":"r-NA";
+      return '<td class="num" data-v="'+n+'"><span class="badge '+badgeCls+'" style="opacity:'+(n>0?1:0.3)+';min-width:44px;display:inline-block;text-align:center">'+n+'</span></td>';
+    }).join("");
+    var segs=sKeys.map(function(s){
+      var n=m.status[s]||0;
+      if(!n)return "";
+      return '<div style="float:left;height:100%;width:'+pct(n,m.total).toFixed(1)+'%;background:'+statusColor(s)+'" title="'+esc(s)+': '+n+'"></div>';
+    }).join("");
+    var rateColor=executed===0?"#9ca3af":(passRate>80?"#2f7d44":passRate>50?"#b9770e":"#c0392b");
+    return '<tr data-name="'+esc(m.main).toLowerCase()+'">'+
+      '<td data-v="'+m.total+'"><span class="badge '+cls+'">'+m.total+'</span></td>'+
+      '<td><b>'+esc(m.main)+'</b></td>'+stCells+
+      '<td class="num" data-v="'+execRate.toFixed(2)+'">'+execRate.toFixed(1)+'%</td>'+
+      '<td class="num" data-v="'+passRate.toFixed(2)+'" style="font-weight:700;color:'+rateColor+'">'+passRate.toFixed(1)+'%</td>'+
+      '<td style="min-width:140px"><div class="bar" style="height:14px">'+segs+'</div></td></tr>';
+  }).join("");
+
+  var legend=sKeys.map(function(s){
+    return '<span><span class="legend-dot" style="background:'+statusColor(s)+'"></span>'+esc(s)+' ('+RESULT.statusStats[s]+')</span>';
+  }).join("");
+
+  document.getElementById("p3").innerHTML=
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'+granSeg()+'</div>'+
+    '<div class="summary" style="margin:0 0 10px">'+kpiSummary+'</div>'+
+    '<div class="grid2" style="margin-top:8px">'+
+      '<div class="box"><h3>全局 Status 构成</h3><div class="chartbox sm"><canvas id="cStatusGlobal"></canvas></div></div>'+
+      '<div class="box"><h3>Top15 主模块 · Status 堆叠分布</h3><div class="chartbox" style="height:380px"><canvas id="cStatusStack"></canvas></div></div>'+
+    '</div>'+
+    '<div class="box" style="margin-top:16px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<h3 style="margin:0">各主模块 Status 数量明细('+arr.length+' 个模块)</h3>'+
+      '<input id="statusTableSearch" class="search-input" placeholder="🔍 搜索模块名...">'+
+      '<span style="font-size:11px;color:var(--muted);margin-left:auto">点击表头可排序</span></div>'+
+      '<div class="legend-row">'+legend+'</div>'+
+      '<div class="scroll-box">'+
+      '<table id="statusTable"><thead><tr>'+
+      '<th class="sortable" data-col="0">规模</th><th class="sortable" data-col="1">主模块</th>'+
+      sKeys.map(function(s,i){return '<th class="sortable" data-col="'+(2+i)+'">'+esc(s)+'</th>'}).join("")+
+      '<th class="sortable" data-col="'+(2+sKeys.length)+'">执行率</th>'+
+      '<th class="sortable" data-col="'+(3+sKeys.length)+'">新通过率(含N/A+自动)</th>'+
+      '<th>分布</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+    '</div>'+
+    '<div class="summary" style="margin-top:16px"><b>说明:</b>执行率 = (总数 - Untested - N/A - 未标) / 总数 &nbsp;|&nbsp; 新通过率 = (Passed + N/A + 自动通过) / 总数 &nbsp;|&nbsp; 配色:&gt;80% 绿、50-80% 黄、&lt;50% 红、未执行灰</div>';
+
+  drawDonut("cStatusGlobal",sKeys,sKeys.map(function(s){return RESULT.statusStats[s]}),sKeys.map(function(s){return statusColor(s)}));
+  drawStackedBarH("cStatusStack",ds15.map(function(m){return m.main}),datasets);
+
+  var searchBox=document.getElementById("statusTableSearch");
+  if(searchBox)searchBox.oninput=function(){
+    var q=this.value.trim().toLowerCase();
+    document.querySelectorAll("#statusTable tbody tr").forEach(function(tr){
+      tr.style.display=(!q||tr.getAttribute("data-name").indexOf(q)!==-1)?"":"none";
+    });
+  };
+  document.querySelectorAll("#statusTable th.sortable").forEach(function(th){
+    th.onclick=function(){
+      var col=parseInt(th.getAttribute("data-col"),10);
+      var desc=!(MODSORT.col===col&&!MODSORT.desc);
+      MODSORT={col:col,desc:desc};
+      sortTableBy("statusTable",col,desc);
+    };
+  });
+}
+
+function sortTableBy(tid,col,desc){
+  var table=document.getElementById(tid);
+  if(!table)return;
+  var tbody=table.querySelector("tbody");
+  var rows=Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+  rows.sort(function(a,b){
+    var ca=a.cells[col],cb=b.cells[col];
+    if(!ca||!cb)return 0;
+    var va=ca.getAttribute("data-v"),vb=cb.getAttribute("data-v");
+    if(va===null||vb===null){
+      va=ca.textContent.trim().toLowerCase();vb=cb.textContent.trim().toLowerCase();
+      return desc?(vb>va?1:vb<va?-1:0):(va>vb?1:va<vb?-1:0);
+    }
+    va=parseFloat(va);vb=parseFloat(vb);
+    return desc?vb-va:va-vb;
+  });
+  rows.forEach(function(r){tbody.appendChild(r)});
+  table.querySelectorAll("th").forEach(function(th){th.classList.remove("sorted-asc","sorted-desc")});
+  var th=table.querySelector('th[data-col="'+col+'"]');
+  if(th)th.classList.add(desc?"sorted-desc":"sorted-asc");
+}
+
+/* ---------- 缺陷统计 ---------- */
+function renderDefects(){
+  var d=RESULT.defStats;
+  var total=RESULT.all.length;
+  var defCaseCnt=0;
+  RESULT.all.forEach(function(r){if(r.defs&&r.defs.length)defCaseCnt++});
+  var modTotal=RESULT.topStats.length;
+  var coverage=modTotal?pct(d.list.length,modTotal).toFixed(1):0;
+  var noDefMods=modTotal-d.list.length;
+
+  // 缺陷台账(BUG sheet 联动)
+  var libCount=Object.keys(DEF_META).length;
+  var stk=[],stDist={},prk=[],prDist={};
+  var ledger;
+  if(libCount){
+    var wM=0,missM=0;
+    var cntMap={};
+    d.topDefects.forEach(function(t){cntMap[t.id]=t});
+    var rowsL;
+    if(BUGSHOWALL){
+      rowsL=Object.keys(DEF_META).map(function(id){
+        return{t:cntMap[id]||{id:id,count:0,mods:0},mt:DEF_META[id]}
+      });
+      rowsL.sort(function(a,b){return b.t.count-a.t.count});
+      wM=d.topDefects.filter(function(t){return DEF_META[t.id]}).length;
+      missM=d.topDefects.length-wM;
+      rowsL.forEach(function(r){if(r.mt.status)stDist[r.mt.status]=(stDist[r.mt.status]||0)+1;if(r.mt.priority)prDist[r.mt.priority]=(prDist[r.mt.priority]||0)+1});
+    }else{
+      rowsL=d.topDefects.map(function(t){
+        var mt=DEF_META[t.id]||null;
+        if(mt){wM++;if(mt.status)stDist[mt.status]=(stDist[mt.status]||0)+1;if(mt.priority)prDist[mt.priority]=(prDist[mt.priority]||0)+1}
+        else missM++;
+        return{t:t,mt:mt}
+      });
+    }
+    var prRank={"Critical":5,"Major":4,"Normal":3,"Minor":2,"Trivial":1};
+    stk=Object.keys(stDist).sort(function(a,b){return stDist[b]-stDist[a]});
+    prk=Object.keys(prDist).sort(function(a,b){return (prRank[b]||0)-(prRank[a]||0)});
+    var lrows=rowsL.map(function(r){
+      var mt=r.mt||{};
+      return '<tr data-name="'+esc((r.t.id+" "+(mt.summary||"")).toLowerCase())+'">'+
+        '<td>'+bugLinkUrl(r.t.id,mt.url)+'</td>'+
+        '<td title="'+esc(mt.summary||"")+'" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((mt.summary||"-").slice(0,60))+'</td>'+
+        (mt.priority?'<td data-v="'+(prRank[mt.priority]||0)+'">'+bugPriBadge(mt.priority)+'</td>':'<td data-v="-1"><span style="color:#bbb">-</span></td>')+
+        (mt.status?'<td>'+bugStatusBadge(mt.status)+'</td>':'<td><span style="color:#bbb">-</span></td>')+
+        '<td>'+esc(mt.resolution||"-")+'</td>'+
+        '<td>'+esc(mt.assignee||"-")+'</td>'+
+        '<td class="num" data-v="'+r.t.count+'">'+r.t.count+'</td>'+
+        '<td class="num" data-v="'+r.t.mods+'">'+r.t.mods+'</td></tr>';
+    }).join("");
+    ledger='<div class="box" style="margin-top:16px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<h3 style="margin:0">缺陷台账(BUG 库共 '+fmtN(libCount)+' 个 · 用例已关联 '+fmtN(d.topDefects.length)+' 个'+((RESULT.linkStats&&RESULT.linkStats.cases)?(' · Test Id 联动 '+fmtN(RESULT.linkStats.cases)+' 条用例执行'):'')+(missM?(',其中 '+fmtN(missM)+' 个缺明细'):'')+')</h3>'+
+      '<label style="font-size:12px;color:var(--muted);cursor:pointer;user-select:none"><input type="checkbox" id="bugShowAllChk"'+(BUGSHOWALL?" checked":"")+'> 显示全部 BUG(含未关联用例)</label>'+
+      '<input id="bugTableSearch" class="search-input" placeholder="🔍 过滤 Jira Id / Summary..." style="margin-left:auto">'+
+      '<span style="font-size:11px;color:var(--muted)">点击表头可排序</span></div>'+
+      '<div class="grid2" style="margin-bottom:10px">'+
+        '<div><h3 style="font-size:13px;margin:0 0 6px">'+(BUGSHOWALL?"全部 BUG":"已关联缺陷")+' · Status 分布</h3><div class="chartbox sm" style="height:220px"><canvas id="cBugStatus"></canvas></div></div>'+
+        '<div><h3 style="font-size:13px;margin:0 0 6px">'+(BUGSHOWALL?"全部 BUG":"已关联缺陷")+' · Priority 分布</h3><div class="chartbox sm" style="height:220px"><canvas id="cBugPriority"></canvas></div></div>'+
+      '</div>'+
+      '<div class="scroll-box" style="max-height:520px"><table id="bugTable"><thead><tr>'+
+      '<th class="sortable" data-col="0">Jira Id</th><th class="sortable" data-col="1">Summary</th><th class="sortable" data-col="2">Priority</th><th class="sortable" data-col="3">Status</th><th class="sortable" data-col="4">Resolution</th><th class="sortable" data-col="5">Assignee</th><th class="sortable" data-col="6">关联用例数</th><th class="sortable" data-col="7">涉及模块数</th>'+
+      '</tr></thead><tbody>'+lrows+'</tbody></table></div>'+
+    '</div>';
+  }else{
+    ledger='<div class="box" style="margin-top:16px"><h3>缺陷台账(Priority / Status / Resolution)</h3><div class="summary" style="margin:0">未检测到 BUG 库:可将《BUG》sheet 放进测试用例同一个工作簿(表头含 "Jira Id" 列即可自动识别),或点击顶栏「<b>载入BUG表</b>」选择 Jira 导出的 Bugs Excel。</div></div>';
+  }
+
+  var kpiHtml=
+    '<div class="card"><div class="k">缺陷总数(全局去重)</div><div class="v">'+d.unique+'</div><div class="d">跨模块重复已合并</div></div>'+
+    '<div class="card"><div class="k">缺陷挂接次数</div><div class="v">'+d.occur+'</div><div class="d">用例 × 缺陷 关联数</div></div>'+
+    '<div class="card"><div class="k">关联缺陷的用例数</div><div class="v">'+defCaseCnt+'</div><div class="d">占比 '+pct(defCaseCnt,total).toFixed(1)+'%</div></div>'+
+    '<div class="card"><div class="k">涉及模块</div><div class="v">'+d.list.length+'<span style="font-size:13px;color:var(--muted)"> / '+modTotal+'</span></div><div class="d">覆盖率 '+coverage+'%,无缺陷模块 '+noDefMods+' 个</div></div>';
+
+  // 明细表
+  var mx=1;d.list.forEach(function(m){if(m.defects>mx)mx=m.defects});
+  var rowsHtml=d.list.map(function(m){
+    var cls=m.total>=1000?"b-L":m.total>=200?"b-M":"b-S";
+    var dcolor=m.density>5?"#c0392b":m.density>1?"#b9770e":"#2f7d44";
+    var w=(m.defects/mx*100).toFixed(0);
+    return '<tr data-name="'+esc(m.main).toLowerCase()+'">'+
+      '<td data-v="'+m.total+'"><span class="badge '+cls+'">'+m.total+'</span></td>'+
+      '<td><b>'+esc(m.main)+'</b></td>'+
+      '<td class="num" data-v="'+m.total+'">'+m.total+'</td>'+
+      '<td class="num" data-v="'+m.defects+'" style="font-weight:700;color:#c0392b">'+m.defects+'</td>'+
+      '<td class="num" data-v="'+m.defCases+'">'+m.defCases+'</td>'+
+      '<td class="num" data-v="'+m.occur+'">'+m.occur+'</td>'+
+      '<td class="num" data-v="'+m.density.toFixed(3)+'" style="color:'+dcolor+';font-weight:700">'+m.density.toFixed(2)+'%</td>'+
+      '<td style="min-width:120px"><div class="bar" style="height:14px"><div class="bar-fill" style="width:'+w+'%;background:linear-gradient(90deg,#e74c3c,#c0392b)"></div></div></td></tr>';
+  }).join("");
+
+  // 挂接最多的缺陷
+  var hotRows=d.topDefects.slice(0,15).map(function(t,i){
+    return '<tr><td class="num">'+(i+1)+'</td><td>'+bugLink(t.id)+'</td><td class="num">'+t.count+'</td><td class="num">'+t.mods+'</td></tr>';
+  }).join("");
+
+  document.getElementById("p7").innerHTML=
+    '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">'+kpiHtml+'</div>'+
+    '<div class="grid2" style="margin-top:8px">'+
+      '<div class="box"><h3>Top15 模块 · 缺陷数 vs 关联缺陷用例数</h3><div class="chartbox" style="height:380px"><canvas id="cDefMod"></canvas></div></div>'+
+      '<div class="box"><h3>挂接最多的缺陷 Top10</h3><div class="chartbox" style="height:380px"><canvas id="cDefHot"></canvas></div></div>'+
+    '</div>'+
+    '<div class="box" style="margin-top:16px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<h3 style="margin:0">各模块缺陷明细('+d.list.length+' 个模块有缺陷)</h3>'+
+      '<input id="defTableSearch" class="search-input" placeholder="🔍 搜索模块名...">'+
+      '<span style="font-size:11px;color:var(--muted);margin-left:auto">点击表头可排序</span></div>'+
+      '<div class="scroll-box">'+
+      '<table id="defTable"><thead><tr>'+
+      '<th class="sortable" data-col="0">规模</th><th class="sortable" data-col="1">主模块</th>'+
+      '<th class="sortable" data-col="2">用例数</th><th class="sortable" data-col="3">缺陷数(去重)</th>'+
+      '<th class="sortable" data-col="4">关联缺陷用例</th><th class="sortable" data-col="5">挂接次数</th>'+
+      '<th class="sortable" data-col="6">缺陷密度</th><th>分布</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+    '</div>'+
+    '<div class="box" style="margin-top:16px"><h3>跨模块缺陷(挂接≥2个模块 · Top15 · 完整清单见下方缺陷台账)</h3>'+toTable(["缺陷ID","涉及模块数","挂接用例数"],d.topDefects.filter(function(t){return t.mods>1}).slice(0,15).map(function(t){return[bugLink(t.id),t.mods,t.count]}))+'</div>'+ledger+
+    '<div class="summary" style="margin-top:16px"><b>说明:</b>缺陷数 = 模块内去重后的缺陷ID数;同一缺陷挂接多个模块/用例时,全局总数只计 1 次,但会计入每个涉及模块。缺陷密度 = 缺陷数 / 用例数,配色:&gt;5% 红、1-5% 黄、&lt;1% 绿。</div>';
+
+  var ds15=d.list.slice(0,15);
+  drawStackedBarH("cDefMod",ds15.map(function(m){return m.main}),[
+    {label:"缺陷数(去重)",data:ds15.map(function(m){return m.defects}),backgroundColor:"#c0392b"},
+    {label:"关联缺陷用例数",data:ds15.map(function(m){return m.defCases}),backgroundColor:"#2f80ed"}
+  ],false);
+  var hot10=d.topDefects.slice(0,10);
+  drawBar("cDefHot",hot10.map(function(t){return t.id}),hot10.map(function(t){return t.count}),"挂接用例数","#c0392b");
+
+  var sb=document.getElementById("defTableSearch");
+  if(sb)sb.oninput=function(){
+    var q=this.value.trim().toLowerCase();
+    document.querySelectorAll("#defTable tbody tr").forEach(function(tr){
+      tr.style.display=(!q||tr.getAttribute("data-name").indexOf(q)!==-1)?"":"none";
+    });
+  };
+  document.querySelectorAll("#defTable th.sortable").forEach(function(th){
+    th.onclick=function(){
+      var col=parseInt(th.getAttribute("data-col"),10);
+      var desc=!(DEFSORT.col===col&&!DEFSORT.desc);
+      DEFSORT={col:col,desc:desc};
+      sortTableBy("defTable",col,desc);
+    };
+  });
+  if(libCount){
+    var saChk=document.getElementById("bugShowAllChk");
+    if(saChk)saChk.onchange=function(){BUGSHOWALL=this.checked;renderDefects()};
+    var bst=document.getElementById("bugTableSearch");
+    if(bst)bst.oninput=function(){
+      var q=this.value.trim().toLowerCase();
+      document.querySelectorAll("#bugTable tbody tr").forEach(function(tr){
+        tr.style.display=(!q||tr.getAttribute("data-name").indexOf(q)!==-1)?"":"none";
+      });
+    };
+    document.querySelectorAll("#bugTable th.sortable").forEach(function(th){
+      th.onclick=function(){
+        var col=parseInt(th.getAttribute("data-col"),10);
+        var desc=!(BUGSORT.col===col&&!BUGSORT.desc);
+        BUGSORT={col:col,desc:desc};
+        sortTableBy("bugTable",col,desc);
+      };
+    });
+    if(stk.length)drawDonut("cBugStatus",stk,stk.map(function(s){return stDist[s]}),stk.map(function(s){return bugStatusColor(s)}));
+    if(prk.length)drawDonut("cBugPriority",prk,prk.map(function(s){return prDist[s]}),prk.map(function(s){return bugPriColor(s)}));
+  }
+}
+
+/* ---------- 结果汇总 ---------- */
+function getModStatusHTML(key){
+  var ms=RESULT.modStatusStats[key];
+  if(!ms||!ms.total)return "";
+  var items=[];
+  Object.keys(ms.status).sort(function(a,b){return ms.status[b]-ms.status[a]}).forEach(function(k){
+    items.push('<span class="badge" style="background:'+statusColor(k)+';color:#fff;margin:1px;opacity:'+(ms.status[k]>0?1:0.35)+'">'+esc(k)+':'+ms.status[k]+'</span>');
+  });
+  return items.join("");
+}
+
+function renderResults(){
+  var mr=RESULT.modResults,total=RESULT.all.length;
+  var passed=RESULT.resStats["Passed"]||0,failed=RESULT.resStats["Failed"]||0,blocked=RESULT.resStats["Blocked"]||0;
+  var pending=total-passed-failed-blocked;
+
+  var modArr=Object.values(mr);
+  modArr.sort(function(a,b){return pct(b.res["Failed"]||0,b.total)-pct(a.res["Failed"]||0,a.total)});
+  var modWithFail=modArr.filter(function(m){return (m.res["Failed"]||0)>0}).slice(0,40);
+  var cleanMods=modArr.filter(function(m){return (m.res["Failed"]||0)===0&&(m.res["Passed"]||0)>0}).slice(0,30);
+
+  function buildRow(m){
+    var cls=m.tier==="L"?"b-L":m.tier==="M"?"b-M":"b-S";
+    var key=m.main+" > "+m.sub;
+    var p=m.res["Passed"]||0,f=m.res["Failed"]||0,b=m.res["Blocked"]||0;
+    var fRate=pct(f,m.total);
+    var failColor=fRate>10?"#c0392b":fRate>5?"#b9770e":"#2f7d44";
+    return '<tr><td><span class="badge '+cls+'">'+m.tier+'</span></td><td><b>'+esc(m.main)+' &gt; '+esc(m.sub)+'</b></td><td class="num">'+m.total+'</td>'+
+      '<td><span class="badge r-Pass">'+p+' ('+pct(p,m.total).toFixed(1)+'%)</span></td>'+
+      '<td><span class="badge r-Fail">'+f+' ('+fRate.toFixed(1)+'%)</span></td>'+
+      '<td><span class="badge r-Warn">'+b+'</span></td>'+
+      '<td class="num" style="color:'+failColor+';font-weight:700">'+fRate.toFixed(1)+'%</td>'+
+      '<td style="padding-right:8px">'+getModStatusHTML(key)+'</td></tr>';
+  }
+  var rows=modWithFail.map(buildRow);
+  var cleanRows=cleanMods.map(buildRow);
+
+  var head='<table><thead><tr><th>规模</th><th>模块</th><th>总数</th><th>通过</th><th>失败</th><th>Blocked</th><th>失败率</th><th>Status汇总</th></tr></thead><tbody>';
+
+  document.getElementById("p4").innerHTML=
+    '<div class="box"><h3>全局执行概览(通过率含 N/A 与自动通过)</h3><div style="margin-top:10px">'+
+      [["通过率",pct(passNum(RESULT.resStats,RESULT.autoPass?RESULT.autoPass.extra:0),total),"#2f7d44"],["失败率",pct(failed,total),"#c0392b"],["Blocked",pct(blocked,total),"#b9770e"],["其他/待执行",pct(total-passNum(RESULT.resStats,RESULT.autoPass?RESULT.autoPass.extra:0)-failed-blocked,total),"#6b7280"]].map(function(x){
+        return '<div style="margin-bottom:8px"><span style="font-size:12px;color:var(--muted)">'+x[0]+'</span><div class="rate-bar" style="height:28px"><div class="rate-fill" style="width:'+Math.min(x[1],100)+'%;background:'+x[2]+';font-size:13px">'+x[1].toFixed(1)+'%</div></div></div>';
+      }).join("")+
+      '</div></div>'+
+    '<div class="box" style="margin-top:16px"><h3>各模块 · 有失败记录 Top'+modWithFail.length+'(按失败率降序)</h3>'+
+    head+rows.join("")+'</tbody></table></div>'+
+    (cleanRows.length?'<div class="box" style="margin-top:16px"><h3>各模块 · 无失败记录('+cleanMods.length+' 个示例)</h3>'+head+cleanRows.join("")+'</tbody></table></div>':"")+
+    '<div class="summary" style="margin-top:16px"><b>说明:</b>失败率配色:🟢 &lt;5%、🟡 5%-10%、🔴 &gt;10%。"测试结果"列缺失时自动采用 Status 列。<b>通过率 =(Passed + N/A + 缺陷全 Closed 自动通过)÷ 总用例</b>，自动通过明细见「自动通过」页。</div>'+
+    '<div id="p5box" style="margin-top:16px"></div>';
+
+}
+
+/* ---------- 自动通过 ---------- */
+function renderAutoPass(){
+  var el=document.getElementById("p8");
+  if(!el)return;
+  var ap=RESULT.autoPass||{rows:[],extra:0,all:0,byMain:{},bugs:0};
+  var ruleTip='<b>判定规则:</b>用例挂接 ≥1 个缺陷(关联 = 测试表 Defects 列 ∪ BUG 表 Test Id 关联),且这些缺陷在 BUG 表中的 Status 全部为 Closed → 该用例计为「自动通过」(原结果 Failed/Blocked/Untested 等一律视为翻绿)。<b>新通过率 =(Passed + N/A + 自动通过)÷ 用例总数</b>。本页跟随顶部筛选联动。';
+  if(!Object.keys(DEF_META).length){
+    el.innerHTML='<div class="box"><h3>自动通过判定 · 未启用</h3><div class="summary" style="margin:0">当前未载入 BUG 库,无法判定缺陷关闭状态。请点顶栏「载入BUG表」(或将含 Jira Id 列的 sheet 放进测试工作簿)后自动计算。<br>'+ruleTip+'</div></div>';
+    return;
+  }
+  var total=RESULT.all.length;
+  var newRate=pct(passNum(RESULT.resStats,ap.extra),total);
+  var baseRate=pct(passNum(RESULT.resStats,0),total);
+  var delta=(newRate-baseRate).toFixed(1);
+  var modArr=Object.keys(ap.byMain).map(function(k){return{main:k,n:ap.byMain[k]}}).sort(function(a,b){return b.n-a.n});
+  var kpi='<div class="card"><div class="k">自动通过用例(新翻绿)</div><div class="v" style="color:#2f7d44">'+fmtN(ap.extra)+'</div><div class="d">另有 '+fmtN(ap.all-ap.extra)+' 条命中时原本就是 Passed/N/A</div></div>'+
+    '<div class="card"><div class="k">涉及 Closed 缺陷</div><div class="v" style="color:#c0392b">'+fmtN(ap.bugs)+'</div><div class="d">覆盖 '+modArr.length+' 个主模块</div></div>'+
+    '<div class="card"><div class="k">新通过率</div><div class="v" style="color:#2f7d44">'+newRate.toFixed(1)+'%</div><div class="d">较不含自动通过的 '+baseRate.toFixed(1)+'% 提升 +'+delta+' pct</div></div>';
+  var rowsHtml=ap.rows.map(function(r){
+    var bugs=rowDefs(r).map(function(d){return bugLink(d)}).join(" ");
+    var rcls=r.result==="Failed"?"r-Fail":r.result==="Blocked"?"r-Warn":"r-NA";
+    return '<tr data-name="'+esc((r.main+" "+r.sub+" "+(r.tid||r.id)+" "+(r.title||"")).toLowerCase())+'">'+
+      '<td>'+esc(r.main)+' &gt; '+esc(r.sub)+'</td>'+
+      '<td><b>'+esc(r.tid||r.id||"")+'</b></td>'+
+      '<td title="'+esc(r.title||"")+'" style="max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((r.title||"-").slice(0,70))+'</td>'+
+      '<td><span class="badge '+rcls+'">'+esc(r.result||"(未标)")+'</span> → <span class="badge r-Pass">视同通过</span></td>'+
+      '<td>'+esc(r.status||"-")+'</td>'+
+      '<td style="white-space:nowrap">'+bugs+'</td></tr>';
+  }).join("");
+  el.innerHTML=
+    '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">'+kpi+'</div>'+
+    '<div class="box" style="margin-top:8px"><h3>Top15 主模块 · 自动通过用例数</h3><div class="chartbox" style="height:340px"><canvas id="cAutoBar"></canvas></div></div>'+
+    '<div class="box" style="margin-top:16px">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<h3 style="margin:0">自动通过用例清单('+fmtN(ap.rows.length)+' 条)</h3>'+
+      '<input id="autoTableSearch" class="search-input" placeholder="🔍 过滤 模块 / Test ID / 标题..." style="margin-left:auto"></div>'+
+      (ap.rows.length?'<div class="scroll-box" style="max-height:560px"><table id="autoTable"><thead><tr><th>模块</th><th>Test ID</th><th>标题</th><th>原结果 → 认定</th><th>原 Status</th><th>关联缺陷(全部 Closed)</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>':'<div class="summary" style="margin:0">没有「新翻绿」的自动通过用例--要么关联缺陷未全部 Closed,要么这些用例本来就是 Passed / N/A。</div>')+
+    '</div>'+
+    '<div class="summary" style="margin-top:16px">'+ruleTip+'</div>';
+  var ats=document.getElementById("autoTableSearch");
+  if(ats)ats.oninput=function(){
+    var q=this.value.trim().toLowerCase();
+    document.querySelectorAll("#autoTable tbody tr").forEach(function(tr){
+      tr.style.display=(!q||tr.getAttribute("data-name").indexOf(q)!==-1)?"":"none";
+    });
+  };
+  var top=modArr.slice(0,15);
+  drawBar("cAutoBar",top.map(function(m){return m.main}),top.map(function(m){return m.n}),"自动通过用例数","#2f7d44");
+}
+
+/* ---------- 优先级分析 ---------- */
+function renderPriority(){
+  var topStats=RESULT.topStats;
+  var priKeys=Object.keys(RESULT.priStats).sort(function(a,b){return RESULT.priStats[b]-RESULT.priStats[a]}).slice(0,8);
+  var palette=["#c0392b","#e74c3c","#f39c12","#27ae60","#2f80ed","#1f4e79","#8e44ad","#16a085"];
+  var colors={};priKeys.forEach(function(p,i){colors[p]=palette[i%palette.length]});
+  var ds=topStats.slice(0,15);
+
+  document.getElementById("p5box").innerHTML=
+    '<div class="box"><h3>Top15 模块 · 优先级构成</h3><div class="chartbox" style="height:380px"><canvas id="cPriStack"></canvas></div></div>'+
+    '<div class="box" style="margin-top:16px"><h3>优先级构成明细</h3><table><thead><tr><th>模块</th>'+priKeys.map(function(p){return "<th>"+esc(p)+"</th>"}).join("")+'</tr></thead><tbody>'+
+    topStats.slice(0,25).map(function(m){return '<tr><td><b>'+esc(m.main)+'</b></td>'+priKeys.map(function(p){return '<td class="num">'+(m.prius[p]||0)+'</td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>';
+
+  var datasets=priKeys.map(function(p){return{label:p,data:ds.map(function(m){return m.prius[p]||0}),backgroundColor:colors[p]}});
+  drawStackedBarH("cPriStack",ds.map(function(m){return m.main}),datasets);
+}
+
+/* ---------- 用例明细(三级模块层级树,可折叠) ---------- */
+var TREESORT="count";
+function addDefIds(o,defs){if(defs&&defs.length)defs.forEach(function(d){o[d]=1})}
+function countKeys(o){var n=0;for(var k in o)n++;return n}
+function fmtN(n){return n.toLocaleString()}
+function miniStatus(st,total){
+  if(!total)return "";
+  var ord=["Passed","Failed","Blocked","Untested","N/A","(未标)"];
+  var segs="";
+  ord.forEach(function(k){
+    var n=st[k]||0;if(!n)return;
+    segs+='<div style="float:left;height:100%;width:'+(n/total*100).toFixed(1)+'%;background:'+statusColor(k)+'" title="'+esc(k)+': '+fmtN(n)+'"></div>';
+  });
+  Object.keys(st).forEach(function(k){
+    if(ord.indexOf(k)!==-1)return;
+    var n=st[k];
+    segs+='<div style="float:left;height:100%;width:'+(n/total*100).toFixed(1)+'%;background:'+statusColor(k)+'" title="'+esc(k)+': '+fmtN(n)+'"></div>';
+  });
+  return '<div class="bar" style="height:10px;width:110px;margin-left:10px;flex-shrink:0;background:#eef0f4" title="Status 构成">'+segs+'</div>';
+}
+function defBadge(n){return n?'<span class="badge" style="background:#fde2e2;color:#c0392b;margin-left:8px;flex-shrink:0" title="关联缺陷数(去重)">🐞 '+n+'</span>':""}
+
+function renderDetails(){
+  var total=RESULT.all.length;
+  var tree={},order=[];
+  RESULT.all.forEach(function(r){
+    var ps=String(r.folder||"").split(">").map(function(p){return p.trim()}).filter(Boolean);
+    var p2=ps[1]||"(空)";
+    var p3=ps[2]||"(本层)";
+    var sv=r.status||"(未标)";
+    if(!tree[r.main]){tree[r.main]={total:0,subs:{},st:{},defs:{}};order.push(r.main)}
+    var M=tree[r.main];M.total++;M.st[sv]=(M.st[sv]||0)+1;addDefIds(M.defs,rowDefs(r));
+    var S=M.subs[p2];
+    if(!S){S=M.subs[p2]={total:0,l3:{},st:{},defs:{}}}
+    S.total++;S.st[sv]=(S.st[sv]||0)+1;addDefIds(S.defs,rowDefs(r));
+    var L=S.l3[p3];
+    if(!L){L=S.l3[p3]={total:0,st:{},defs:{}}}
+    L.total++;L.st[sv]=(L.st[sv]||0)+1;addDefIds(L.defs,rowDefs(r));
+  });
+  function byName(a,b){return String(a).localeCompare(String(b),"zh-CN")}
+  if(TREESORT==="name")order.sort(byName);else order.sort(function(a,b){return tree[b].total-tree[a].total});
+  var l2Total=0,l3Total=0;
+  order.forEach(function(m){
+    Object.keys(tree[m].subs).forEach(function(s){
+      l2Total++;
+      var l3=Object.keys(tree[m].subs[s].l3);
+      if(!(l3.length===1&&l3[0]==="(本层)"))l3Total+=l3.length;
+    });
+  });
+  var mx=order.length?tree[order[0]].total:1;
+
+  function numCell(c){return '<span class="num" style="width:64px;font-weight:600;flex-shrink:0">'+fmtN(c)+'</span>'}
+  function barCell(c,base,color){
+    return '<div class="bar" style="height:10px;flex:1;margin-left:10px;max-width:200px"><div class="bar-fill" style="width:'+(base?c/base*100:0).toFixed(1)+'%;background:'+(color||"#7fa8d9")+'"></div></div>';
+  }
+  function pctCell(c,base){return '<span style="font-size:11px;color:var(--muted);width:52px;text-align:right;flex-shrink:0">'+pct(c,base).toFixed(1)+'%</span>'}
+
+  var html=order.map(function(main){
+    var M=tree[main];
+    var cls=M.total>=1000?"b-L":M.total>=200?"b-M":"b-S";
+    var subKeys=Object.keys(M.subs).sort(function(a,b){return TREESORT==="name"?byName(a,b):M.subs[b].total-M.subs[a].total});
+    var initOpen=TREESORT==="count"&&M.total>=1000;
+    var groups=subKeys.map(function(s){
+      var S=M.subs[s];
+      var l3keys=Object.keys(S.l3).sort(function(a,b){return TREESORT==="name"?byName(a,b):S.l3[b].total-S.l3[a].total});
+      var hasL3=!(l3keys.length===1&&l3keys[0]==="(本层)");
+      var l3rows=hasL3?l3keys.map(function(t){
+        var L=S.l3[t];var c=L.total;
+        return '<div class="tree-sub lvl3 l3item" data-name="'+esc((main+">"+s+">"+t).toLowerCase())+'">'+
+          '<span class="tree-sub-name" data-label="'+esc(t)+'" data-prefix="· ">· '+esc(t)+'</span>'+numCell(c)+barCell(c,S.total,"#b7cbe8")+pctCell(c,S.total)+miniStatus(L.st,c)+defBadge(countKeys(L.defs))+'</div>';
+      }).join(""):"";
+      return '<div class="tree-l2group" data-name="'+esc((main+">"+s).toLowerCase())+'">'+
+        '<div class="tree-sub lvl2'+(hasL3?" clickable":"")+'" data-hasl3="'+(hasL3?"1":"")+'">'+
+          '<span class="tree-caret'+(hasL3?"":" empty")+'">&#9654;</span>'+
+          '<span class="tree-sub-name" data-label="'+esc(s)+'" data-prefix="└ " title="'+esc(s)+'">└ '+esc(s)+'</span>'+numCell(S.total)+barCell(S.total,M.total)+pctCell(S.total,M.total)+miniStatus(S.st,S.total)+defBadge(countKeys(S.defs))+
+        '</div>'+
+        (hasL3?'<div class="tree-l3box" style="display:none">'+l3rows+'</div>':"")+
+      '</div>';
+    }).join("");
+    return '<div class="tree-mod" data-name="'+esc(main).toLowerCase()+'" data-init="'+(initOpen?1:0)+'">'+
+      '<div class="tree-head">'+
+        '<span class="tree-caret">'+(initOpen?"&#9660;":"&#9654;")+'</span>'+
+        '<span class="badge '+cls+'" style="min-width:64px;text-align:center">'+fmtN(M.total)+'</span>'+
+        '<b class="tname" data-label="'+esc(main)+'" style="margin:0 10px">'+esc(main)+'</b>'+
+        '<span class="tree-subcnt">'+subKeys.length+' 个二级目录 · 占 '+pct(M.total,total).toFixed(1)+'%</span>'+
+        defBadge(countKeys(M.defs))+miniStatus(M.st,M.total)+
+        '<div class="bar" style="height:10px;width:140px;margin-left:auto;flex-shrink:0"><div class="bar-fill" style="width:'+(M.total/mx*100).toFixed(1)+'%"></div></div>'+
+      '</div>'+
+      '<div class="tree-body" style="display:'+(initOpen?"block":"none")+'">'+groups+'</div>'+
+    '</div>';
+  }).join("");
+
+  var totalRow='<div class="tree-mod" style="border-color:#c7d6ea;background:#f0f6ff">'+
+    '<div class="tree-head" style="cursor:default">'+
+    '<span class="badge" style="background:var(--brand);color:#fff;min-width:64px;text-align:center">'+fmtN(total)+'</span>'+
+    '<b style="margin:0 10px">全部</b>'+
+    '<span class="tree-subcnt">'+order.length+' 个主模块 · '+fmtN(l2Total)+' 个二级 · '+fmtN(l3Total)+' 个三级</span>'+
+    defBadge(RESULT.defStats.unique)+miniStatus(RESULT.statusStats,total)+
+    '</div></div>';
+
+  var legend='<div style="display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin-bottom:8px">'+
+    Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]}).map(function(s){
+      return '<span><span class="legend-dot" style="background:'+statusColor(s)+'"></span>'+esc(s)+'</span>';
+    }).join("")+'<span>🐞 = 关联缺陷数(去重)</span><span>行内小色条 = 该节点 Status 构成(悬停看数量)</span></div>';
+
+  document.getElementById("p6").innerHTML=
+    '<div class="box">'+
+    '<div class="sticky-bar">'+
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+        '<h3 style="margin:0">模块层级用例统计'+(CURRENT_FILTER?"(筛选: "+esc(CURRENT_FILTER)+")":"")+'</h3>'+
+        '<input id="treeSearch" class="search-input" placeholder="🔍 搜索任意层级关键字..." style="margin-left:auto">'+
+        '<button class="ghost" style="padding:5px 12px;font-size:12px" id="treeSortBtn">排序: '+(TREESORT==="count"?"按数量":"按名称")+'</button>'+
+        '<button class="ghost" style="padding:5px 12px;font-size:12px" id="treeExpandAll">展开全部</button>'+
+        '<button class="ghost" style="padding:5px 12px;font-size:12px" id="treeCollapseAll">收起全部</button>'+
+      '</div>'+legend+
+    '</div>'+totalRow+html+'</div>';
+
+  function setCaret(el,open){if(el)el.innerHTML=open?"&#9660;":"&#9654;"}
+  document.querySelectorAll("#p6 .tree-mod").forEach(function(mod){
+    var h=mod.querySelector(":scope > .tree-head");
+    if(!h||!mod.getAttribute("data-name"))return;
+    h.onclick=function(){
+      var body=mod.querySelector(":scope > .tree-body");
+      var open=body.style.display!=="none";
+      body.style.display=open?"none":"block";
+      setCaret(h.querySelector(".tree-caret"),open);
+    };
+  });
+  document.querySelectorAll("#p6 .tree-sub.lvl2").forEach(function(s){
+    if(s.getAttribute("data-hasl3")!=="1")return;
+    s.onclick=function(){
+      var box=s.parentNode.querySelector(".tree-l3box");
+      var open=box.style.display!=="none";
+      box.style.display=open?"none":"block";
+      setCaret(s.querySelector(".tree-caret"),open);
+    };
+  });
+  function setAll(open){
+    document.querySelectorAll("#p6 .tree-body,#p6 .tree-l3box").forEach(function(b){b.style.display=open?"block":"none"});
+    document.querySelectorAll("#p6 .tree-caret:not(.empty)").forEach(function(c){setCaret(c,open)});
+  }
+  document.getElementById("treeExpandAll").onclick=function(){setAll(true)};
+  document.getElementById("treeCollapseAll").onclick=function(){setAll(false)};
+  document.getElementById("treeSortBtn").onclick=function(){
+    TREESORT=TREESORT==="count"?"name":"count";
+    renderDetails();
+  };
+  function hl(el,q){
+    var lb=el.getAttribute("data-label");if(lb===null)return;
+    var pre=el.getAttribute("data-prefix")||"";
+    if(!q){el.innerHTML=pre+esc(lb);return}
+    var i=lb.toLowerCase().indexOf(q);
+    if(i===-1){el.innerHTML=pre+esc(lb);return}
+    el.innerHTML=pre+esc(lb.substring(0,i))+"<mark>"+esc(lb.substring(i,i+q.length))+"</mark>"+esc(lb.substring(i+q.length));
+  }
+  document.getElementById("treeSearch").oninput=function(){
+    var q=this.value.trim().toLowerCase();
+    document.querySelectorAll("#p6 .tree-mod").forEach(function(mod){
+      var name=mod.getAttribute("data-name");
+      if(!name)return; /* 合计行跳过 */
+      var mainHit=!q||name.indexOf(q)!==-1;
+      var tn=mod.querySelector(":scope > .tree-head > .tname");if(tn)hl(tn,q);
+      var anyGroup=false;
+      mod.querySelectorAll(".tree-l2group").forEach(function(g){
+        var gHit=mainHit||g.getAttribute("data-name").indexOf(q)!==-1;
+        var l3Hit=false;
+        g.querySelectorAll(".l3item").forEach(function(it){
+          var h=gHit||it.getAttribute("data-name").indexOf(q)!==-1;
+          it.style.display=h?"":"none";if(h)l3Hit=true;
+          var nm=it.querySelector(".tree-sub-name");if(nm)hl(nm,q);
+        });
+        var n2=g.querySelector(".lvl2 > .tree-sub-name");if(n2)hl(n2,q);
+        var show=gHit||l3Hit;
+        g.style.display=show?"":"none";
+        var box=g.querySelector(".tree-l3box");
+        if(box){
+          if(q&&show){box.style.display="block";setCaret(g.querySelector(".lvl2 > .tree-caret"),true)}
+          else if(!q){box.style.display="none"}
+        }
+        if(show)anyGroup=true;
+      });
+      mod.style.display=(mainHit||anyGroup)?"":"none";
+      var body=mod.querySelector(":scope > .tree-body");
+      var caret=mod.querySelector(":scope > .tree-head > .tree-caret");
+      if(q&&(mainHit||anyGroup)){body.style.display="block";setCaret(caret,true)}
+      else if(!q){var init=mod.getAttribute("data-init")==="1";body.style.display=init?"block":"none";setCaret(caret,init)}
+    });
+  };
+}
+
+/* ---------- 可搜索下拉 ---------- */
+function makeCombo(id,placeholder,multi){
+  var root=document.getElementById(id);
+  var input=root.querySelector(".combo-input");
+  var list=root.querySelector(".combo-list");
+  var items=[];
+  var sel=[];
+  input.dataset.value="all";input.value="全部";
+  if(placeholder)input.placeholder=placeholder;
+
+  function hl(text,q){
+    if(!q)return esc(text);
+    var i=text.toLowerCase().indexOf(q.toLowerCase());
+    if(i===-1)return esc(text);
+    return esc(text.substring(0,i))+"<mark>"+esc(text.substring(i,i+q.length))+"</mark>"+esc(text.substring(i+q.length));
+  }
+  function isSel(v){
+    v=String(v);
+    return multi?(v==="all"?sel.length===0:sel.indexOf(v)!==-1):v===input.dataset.value;
+  }
+  function labelOf(v){var f=null;items.forEach(function(it){if(String(it.value)===String(v))f=it});return f?f.label:String(v)}
+  function summaryText(){
+    if(!sel.length)return "全部";
+    if(sel.length===1)return labelOf(sel[0]);
+    return labelOf(sel[0])+" 等 "+sel.length+" 个";
+  }
+  function updateInput(){
+    if(multi){input.value=summaryText();input.dataset.value=sel.length?sel.join("|"):"all"}
+    else{input.value=input.dataset.value==="all"?"全部":labelOf(input.dataset.value)}
+  }
+  function render(kw){
+    var q=(kw||"").trim();
+    var html="";
+    items.forEach(function(it){
+      var label=String(it.label);
+      if(q&&label.toLowerCase().indexOf(q.toLowerCase())===-1)return;
+      var cb=multi&&String(it.value)!=="all"?(isSel(it.value)?"☑ ":"☐ "):"";
+      html+='<div class="combo-item'+(isSel(it.value)?" sel":"")+'" data-val="'+esc(String(it.value))+'"><span>'+cb+hl(label,q)+'</span>'+(it.count!==undefined?'<span class="combo-count">'+it.count+'</span>':"")+'</div>';
+    });
+    list.innerHTML=html||'<div class="combo-empty">无匹配项</div>';
+  }
+  function select(v){
+    var found=null;
+    items.forEach(function(it){if(String(it.value)===String(v))found=it});
+    input.dataset.value=found?String(found.value):"all";
+    input.value=found?found.label:"全部";
+    render("");
+  }
+  function toggle(v){
+    v=String(v);
+    if(v==="all"){sel=[]}
+    else{var i=sel.indexOf(v);if(i===-1)sel.push(v);else sel.splice(i,1)}
+    updateInput();
+    render("");
+  }
+  input.addEventListener("focus",function(){root.classList.add("open");render("")});
+  input.addEventListener("input",function(){root.classList.add("open");render(input.value)});
+  input.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){root.classList.remove("open");updateInput();input.blur()}
+    if(e.key==="Enter"){var first=list.querySelector(".combo-item");if(first){var v=first.getAttribute("data-val");if(multi){toggle(v)}else{select(v);root.classList.remove("open")}}}
+  });
+  list.addEventListener("mousedown",function(e){
+    var it=e.target;
+    while(it&&it!==list&&!it.classList.contains("combo-item"))it=it.parentNode;
+    if(!it||it===list)return;
+    e.preventDefault();
+    var v=it.getAttribute("data-val");
+    if(multi){toggle(v)}
+    else{select(v);root.classList.remove("open")}
+  });
+  document.addEventListener("click",function(e){
+    if(!root.contains(e.target)){root.classList.remove("open");updateInput()}
+  });
+  return{
+    setOptions:function(newItems){
+      items=newItems;
+      if(multi){var valid={};items.forEach(function(it){valid[String(it.value)]=1});sel=sel.filter(function(v){return valid[v]})}
+      render("");
+    },
+    getValue:function(){return input.dataset.value||"all"},
+    getValues:function(){return multi?(sel.length?sel.slice():["all"]):[input.dataset.value||"all"]},
+    reset:function(){if(multi){sel=[];updateInput();render("")}else select("all")}
+  };
+}
+
+function populateFilter(){
+  var mainMods={},levelCounts={},statusCounts={};
+  ALL_ROWS.forEach(function(r){
+    mainMods[r.main]=(mainMods[r.main]||0)+1;
+    levelCounts[r.prio]=(levelCounts[r.prio]||0)+1;
+    var sv=r.status||"(未标)";
+    statusCounts[sv]=(statusCounts[sv]||0)+1;
+  });
+
+  if(!COMBOS.main){
+    COMBOS.main=makeCombo("comboMain","可多选 · 搜索主模块(共 "+Object.keys(mainMods).length+" 个)...",true);
+    COMBOS.level=makeCombo("comboLevel","可多选 · 搜索用例层级...",true);
+    COMBOS.status=makeCombo("comboStatus","可多选 · 搜索Status...",true);
+  }
+
+  var modItems=[{value:"all",label:"全部",count:ALL_ROWS.length}];
+  Object.keys(mainMods).sort().forEach(function(m){modItems.push({value:m,label:m,count:mainMods[m]})});
+  COMBOS.main.setOptions(modItems);
+
+  var lvItems=[{value:"all",label:"全部",count:ALL_ROWS.length}];
+  Object.keys(levelCounts).sort(function(a,b){return levelCounts[b]-levelCounts[a]}).forEach(function(k){lvItems.push({value:k,label:k,count:levelCounts[k]})});
+  COMBOS.level.setOptions(lvItems);
+
+  var stItems=[{value:"all",label:"全部",count:ALL_ROWS.length}];
+  Object.keys(statusCounts).sort(function(a,b){return statusCounts[b]-statusCounts[a]}).forEach(function(s){stItems.push({value:s,label:s,count:statusCounts[s]})});
+  COMBOS.status.setOptions(stItems);
+}
+
+/* ---------- 筛选串联(作用于全部页面) ---------- */
+document.getElementById("btnApplyFilter").onclick=function(){
+  if(!COMBOS.main)return;
+  var mains=COMBOS.main.getValues();
+  var levels=COMBOS.level.getValues();
+  var stats=COMBOS.status.getValues();
+  var filtered=ALL_ROWS;
+  var conds=[];
+  var joinVals=function(arr){return arr.length<=3?arr.join(" + "):arr.length+"项"};
+  if(mains[0]!=="all"){filtered=filtered.filter(function(r){return mains.indexOf(r.main)!==-1});conds.push("模块="+joinVals(mains))}
+  if(levels[0]!=="all"){filtered=filtered.filter(function(r){return levels.indexOf(r.prio)!==-1});conds.push("层级="+joinVals(levels))}
+  if(stats[0]!=="all"){filtered=filtered.filter(function(r){return stats.indexOf(r.status)!==-1});conds.push("Status="+joinVals(stats))}
+  if(!filtered.length){toast("筛选后无数据,已保持不变");return}
+  CURRENT_FILTER=conds.join(" & ");
+  buildDataset(filtered);
+  toast(conds.length?("筛选 "+CURRENT_FILTER+" → "+filtered.length+" 条,已同步全部页面"):"已恢复全量 "+filtered.length+" 条");
+};
+
+document.getElementById("btnClearFilters").onclick=function(){
+  if(!COMBOS.main)return;
+  COMBOS.main.reset();COMBOS.level.reset();COMBOS.status.reset();
+  CURRENT_FILTER="";
+  buildDataset(ALL_ROWS);
+  toast("已清除筛选,恢复全量数据");
+};
+
+(function(){
+  var btIn=document.getElementById("bugTplInput");
+  try{btIn.value=getBugTpl()}catch(e){}
+  document.getElementById("btnSaveBugTpl").onclick=function(){
+    var v=(btIn.value||"").trim();
+    if(v&&v.indexOf("{id}")===-1){toast("模板必须包含 {id} 占位符,如 https://jira.xxx.com/browse/{id}");return}
+    setBugTpl(v);
+    if(RESULT)renderAll();
+    toast(v?"已保存,Bug 编号可点击跳转(新标签页打开)":"已清除模板,Bug 编号恢复纯文本");
+  };
+})();
+
+/* ---------- 图表 ---------- */
+function drawDonut(id,labels,data,colors){
+  var el=document.getElementById(id);if(!el)return;
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(el,{
+    type:"doughnut",data:{labels:labels,datasets:[{data:data,backgroundColor:colors}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:11}}}}}
+  });
+}
+function drawBar(id,labels,data,label,color){
+  var el=document.getElementById(id);if(!el)return;
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(el,{
+    type:"bar",data:{labels:labels,datasets:[{label:label,data:data,backgroundColor:color}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
+  });
+}
+function drawStackedBarH(id,labels,datasets,stacked){
+  if(stacked===undefined)stacked=true;
+  var el=document.getElementById(id);if(!el)return;
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart(el,{
+    type:"bar",data:{labels:labels,datasets:datasets},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",
+      plugins:{legend:{position:"bottom",labels:{font:{size:10},boxWidth:12}}},
+      scales:{x:{stacked:stacked},y:{stacked:stacked,ticks:{font:{size:11}}}}}
+  });
+}
+
+function toTable(headers,rows){
+  var html="<table><thead><tr>";
+  for(var i=0;i<headers.length;i++)html+="<th>"+headers[i]+"</th>";
+  html+="</tr></thead><tbody>";
+  for(var j=0;j<rows.length;j++){
+    html+="<tr>";
+    for(var k=0;k<rows[j].length;k++)html+="<td>"+rows[j][k]+"</td>";
+    html+="</tr>";
+  }
+  return html+"</tbody></table>";
+}
+
+/* ---------- 导出 ---------- */
+function exportExcel(){
+  if(!RESULT)return;
+  var resKeys=Object.keys(RESULT.resStats).sort(function(a,b){return RESULT.resStats[b]-RESULT.resStats[a]});
+  var data=RESULT.mods.map(function(m){
+    var key=m.main+" > "+m.sub;
+    var res=RESULT.modResults[key]?RESULT.modResults[key].res:{};
+    var row={"模块":m.folder,"用例总数":m.total};
+    resKeys.forEach(function(k){row[k]=res[k]||0});
+    row["负责人"]=m.owners.join(";");
+    return row;
+  });
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),"模块统计");
+
+  var sKeys=Object.keys(RESULT.statusStats).sort(function(a,b){return RESULT.statusStats[b]-RESULT.statusStats[a]});
+  var tarr=Object.values(RESULT.topStatusStats);
+  tarr.sort(function(a,b){return b.total-a.total});
+  var sdata=tarr.map(function(m){
+    var row={"主模块":m.main,"用例总数":m.total};
+    sKeys.forEach(function(s){row[s]=m.status[s]||0});
+    var naN2=0;Object.keys(m.status).forEach(function(kk){if(/^n\/?a$/i.test(kk))naN2+=m.status[kk]});
+    var apN=(RESULT.autoPass&&RESULT.autoPass.byMain[m.main])||0;
+    row["执行率"]=pct(executedFor(m),m.total).toFixed(1)+"%";
+    row["自动通过数"]=apN;
+    row["新通过率(含N/A+自动)"]=pct((m.status["Passed"]||0)+naN2+apN,m.total).toFixed(1)+"%";
+    return row;
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sdata),"Status分布");
+
+  var ddata=RESULT.defStats.list.map(function(m){
+    return{"主模块":m.main,"用例总数":m.total,"缺陷数(去重)":m.defects,"关联缺陷用例数":m.defCases,"挂接次数":m.occur,"缺陷密度(%)":m.density.toFixed(2)};
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ddata),"缺陷统计");
+
+  if(Object.keys(DEF_META).length){
+    var bdata=RESULT.defStats.topDefects.map(function(t){
+      var m=DEF_META[t.id]||{};
+      return{"Jira Id":t.id,"Priority":m.priority||"","Status":m.status||"","Resolution":m.resolution||"","Assignee":m.assignee||"","Created On":m.created||"","Summary":m.summary||"","关联用例数":t.count,"涉及模块数":t.mods};
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bdata),"缺陷台账BUG表");
+  }
+
+  if(RESULT.autoPass&&RESULT.autoPass.rows.length){
+    var adata=RESULT.autoPass.rows.map(function(r){
+      return{"主模块":r.main,"二级模块":r.sub,"Test ID":r.tid||"","Case ID":r.id||"","标题":r.title||"","原结果":r.result||"","原Status":r.status||"","关联缺陷(全部Closed)":rowDefs(r).join(", ")};
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(adata),"自动通过清单");
+  }
+
+  var name=CURRENT_FILTER?("测试用例统计_筛选_"+CURRENT_FILTER):"测试用例模块统计";
+  name+="_"+APP_VER+"_"+new Date().toISOString().slice(0,10)+".xlsx";
+  XLSX.writeFile(wb,name.replace(/[\\/:*?"&<>]/g,"_"));
+}
+
+/* ---------- BUG 表(缺陷台账)解析与样式 ---------- */
+function parseBugWorkbook(wb){
+  wb.SheetNames.forEach(function(sn){
+    try{
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:""});
+      if(!rows.length)return;
+      var h0=rows[0],jk=null;
+      ["Jira Id","JiraID","Jira id","Issue Id"].forEach(function(nm){if(!jk&&h0[nm]!==undefined&&h0[nm]!==null)jk=nm});
+      if(!jk)return;
+      var sk=firstCol(h0,["Summary","标题","Title"]);
+      var pk=firstCol(h0,["Priority","优先级"]);
+      var stk2=firstCol(h0,["Status","状态"]);
+      var rk=firstCol(h0,["Resolution","解决结果"]);
+      var ak=firstCol(h0,["Assignee","经办人"]);
+      var ck=firstCol(h0,["Created On","创建时间"]);
+      var uk=null;
+      ["URL","Link","链接","Jira URL","Bug URL","Permalink"].forEach(function(nm){if(!uk&&h0[nm]!==undefined&&h0[nm]!==null)uk=nm});
+      var tk2=firstCol(h0,["Test Id","Test ID","测试用例ID","用例执行ID"]);
+      var nk2=firstCol(h0,["Run Name","执行计划"]);
+      var tsk=firstCol(h0,["Test Status","执行结果"]);
+      rows.forEach(function(r){
+        var id=val(r,jk);if(!id)return;
+        if(tk2){
+          var tv=val(r,tk2);
+          if(tv){
+            var LK=LINK2BUGS[tv]||(LINK2BUGS[tv]={});
+            var rec=LK[id]||(LK[id]={runs:{},stats:{}});
+            var rn=val(r,nk2);if(rn)rec.runs[rn]=1;
+            var ts=val(r,tsk);if(ts)rec.stats[ts]=(rec.stats[ts]||0)+1;
+          }
+        }
+        if(!DEF_META[id])DEF_META[id]={id:id,summary:val(r,sk),priority:val(r,pk),status:val(r,stk2),resolution:val(r,rk),assignee:val(r,ak),created:val(r,ck),url:uk?val(r,uk).replace(/[\],。;,;]+$/,""):""};
+      });
+    }catch(e){console.warn("BUG sheet parse skip:",sn,e)}
+  });
+  return Object.keys(DEF_META).length;
+}
+function bugStatusColor(s){var m={"Open":"#c0392b","In Progress":"#e67e22","Reopened":"#8e44ad","Resolved":"#2f7d44","Closed":"#7f8c8d","Verified":"#16a085"};return m[s]||"#2f80ed"}
+function bugPriColor(s){var m={"Critical":"#7b241c","Major":"#d35400","Normal":"#2f80ed","Minor":"#7f8c8d","Trivial":"#95a5a6"};return m[s]||"#5b6472"}
+function bugStatusBadge(s){return '<span class="badge" style="background:'+bugStatusColor(s)+';color:#fff">'+esc(s)+'</span>'}
+function bugPriBadge(s){return '<span class="badge" style="background:'+bugPriColor(s)+';color:#fff">'+esc(s)+'</span>'}
+
+/* ---------- 缺陷链接模板 ---------- */
+function getBugTpl(){try{return localStorage.getItem("bugUrlTpl")||""}catch(e){return ""}}
+function setBugTpl(v){try{localStorage.setItem("bugUrlTpl",v)}catch(e){}}
+function bugLink(id){
+  var mt=DEF_META[id]||{};
+  return bugLinkUrl(id,mt.url);
+}
+function bugLinkUrl(id,url){
+  var txt=esc(id);
+  if(url&&/^https?:\/\//i.test(url)){
+    return '<a class="mdef-id buglink" href="'+esc(url)+'" target="_blank" rel="noopener" title="在新标签页打开缺陷单">'+txt+'&#8599;</a>';
+  }
+  var tpl=getBugTpl();
+  if(!tpl||tpl.indexOf("{id}")===-1)return '<span class="mdef-id">'+txt+'</span>';
+  var u2=tpl.split("{id}").join(encodeURIComponent(id));
+  return '<a class="mdef-id buglink" href="'+esc(u2)+'" target="_blank" rel="noopener" title="在新标签页打开缺陷单">'+txt+'&#8599;</a>';
+}
+
+/* ---------- 事件 ---------- */
+document.getElementById("dropzone").addEventListener("click",function(){document.getElementById("file").click()});
+document.getElementById("file").addEventListener("change",function(e){if(e.target.files[0])loadFile(e.target.files[0])});
+["dragenter","dragover"].forEach(function(ev){
+  document.getElementById("dropzone").addEventListener(ev,function(e){e.preventDefault();document.getElementById("dropzone").classList.add("drag")});
+});
+["dragleave","drop"].forEach(function(ev){
+  document.getElementById("dropzone").addEventListener(ev,function(e){e.preventDefault();document.getElementById("dropzone").classList.remove("drag")});
+});
+document.getElementById("dropzone").addEventListener("drop",function(e){var f=e.dataTransfer.files[0];if(f)loadFile(f)});
+document.getElementById("btnReload").addEventListener("click",function(){document.getElementById("file").click()});
+document.getElementById("btnPng").addEventListener("click",function(){
+  var ap=document.querySelector(".panel.active");
+  var pid=ap?ap.id:"p1";
+  var n=0;
+  document.querySelectorAll("#"+pid+" canvas").forEach(function(cv){
+    if(!cv.width||!cv.height)return;
+    var a=document.createElement("a");
+    a.href=cv.toDataURL("image/png");
+    a.download="chart_"+pid+"_"+(++n)+".png";
+    a.click();
+  });
+  toast(n?("已导出当前页 "+n+" 张图表 PNG"):"当前页没有图表可导出");
+});
+document.getElementById("btnBugFile").addEventListener("click",function(){document.getElementById("bugfile").click()});
+document.getElementById("bugfile").addEventListener("change",function(e){
+  var f=e.target.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(ev){
+    try{
+      var wb2=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+      DEF_META={};LINK2BUGS={};
+      var n=parseBugWorkbook(wb2);
+      if(!n){toast("未识别到含 Jira Id 列的 sheet");return}
+      toast("BUG 库已载入:"+n+" 个缺陷;Test Id 关联 " +Object.keys(LINK2BUGS).length+" 条用例执行记录");
+      buildDataset(RESULT?RESULT.all:ALL_ROWS);
+    }catch(err){toast("BUG文件解析失败: "+err.message)}
+    e.target.value="";
+  };
+  rd.readAsArrayBuffer(f);
+});
+document.getElementById("btnExport").addEventListener("click",exportExcel);
+
+document.getElementById("tabs").addEventListener("click",function(e){
+  if(!e.target.classList.contains("tab"))return;
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")});
+  document.querySelectorAll(".panel").forEach(function(p){p.classList.remove("active")});
+  e.target.classList.add("active");
+  var pid=e.target.getAttribute("data-p");
+  if(pid==="p2"&&GRAN==="main")pid="p3";
+  var panel=document.getElementById(pid);
+  if(panel)panel.classList.add("active");
+});
+document.addEventListener("click",function(e){
+  var b=e.target&&e.target.closest?e.target.closest(".gran"):null;
+  if(b){var g=b.getAttribute("data-g");if(g)showGran(g)}
+});
+</script>
+</body>
+</html>

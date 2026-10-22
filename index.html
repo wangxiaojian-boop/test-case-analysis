@@ -120,7 +120,7 @@ table{border-radius:8px;overflow-anchor:none}
 <div class="wrap">
   <div id="dropzone" class="dropzone">
     <div class="big">选择 Excel 文件(可一次多选)</div>
-    <div class="hint">测试用例分析工具:导入测试用例表(需含 Folder/模块、Priority、Status 等列)后自动分层拆分模块并生成全套统计。支持一次同时选中用例表与 BUG 导出表(含 Jira Id 列),自动识别文件类型并关联;也支持只选用例表(BUG 信息来自 Defects 列或用例文件内 BUG sheet)。功能:模块三级分层统计、多维筛选与分项统计、缺陷关联与台账、自动通过判定、新通过率/通过率(剔N/A)、Excel 全量导出。全部解析在浏览器本地完成,数据不上传任何服务器。</div>
+    <div class="hint">测试用例分析工具:导入测试用例表(需含 Folder/模块、Priority、Status 等列)后自动分层拆分模块并生成全套统计。支持一次同时选中多份用例表与 BUG 导出表(含 Jira Id 列),自动识别文件类型:多份用例表(多个文件、或一个文件内多个用例 sheet)自动合并统计,多份 BUG 表自动叠加去重;也支持只选用例表(BUG 信息来自 Defects 列或用例文件内 BUG sheet)。功能:模块三级分层统计、多维筛选与分项统计、缺陷关联与台账、自动通过判定、新通过率/通过率(剔N/A)、Excel 全量导出。全部解析在浏览器本地完成,数据不上传任何服务器。</div>
   </div>
   <input type="file" id="file" accept=".xlsx,.xls" multiple style="display:none">
   <div id="toolbar" class="toolbar" style="display:none">
@@ -178,7 +178,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r11";
+var APP_VER="v2026.10.21-r12";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
 
@@ -227,30 +227,47 @@ function loadFiles(fileList){
 }
 function finishLoad(files,wbs,errs){
   try{
-    var caseWb=null,bugWbs=[],dup=0;
-    wbs.forEach(function(wb,i){
+    var caseSheets=[],bugWbs=[],unrec=0;
+    function caseOk(h){return ["Folder","模块","模块路径","用例路径"].some(function(k){return h[k]!==undefined&&h[k]!==null})}
+    wbs.forEach(function(wb){
       if(!wb)return;
       var t=classifyWb(wb);
-      if(t==="case"){if(!caseWb)caseWb=wb;else dup++}
+      if(t==="case"){
+        wb.SheetNames.forEach(function(sn){
+          try{
+            var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:""});
+            if(rows.length&&caseOk(rows[0]))caseSheets.push({name:sn,rows:rows});
+          }catch(e){}
+        });
+      }
       else if(t==="bug")bugWbs.push(wb);
+      else unrec++;
     });
-    if(!caseWb){toast(errs.length?("读取失败: "+errs.join(", ")):"未找到测试用例表(需含 Folder/模块 列;含 Jira Id 列的文件会被识别为 BUG 表)");return}
-    RAW=XLSX.utils.sheet_to_json(caseWb.Sheets[caseWb.SheetNames[0]],{defval:""});
+    if(!caseSheets.length){toast(errs.length?("读取失败: "+errs.join(", ")):"未找到测试用例表(需含 Folder/模块 列;含 Jira Id 列的文件会被识别为 BUG 表)");return}
+    RAW=[];
+    caseSheets.forEach(function(cs){RAW=RAW.concat(cs.rows)});
     if(!RAW.length){toast("用例表未读到数据");return}
+    var dupN=0;
+    try{
+      if(caseSheets.length>1){
+        var h0=caseSheets[0].rows[0],idk=null;
+        ["Case ID","用例ID","用例编号","Test ID","TestID","测试用例ID","测试编号"].forEach(function(nm){if(!idk&&h0[nm]!==undefined&&h0[nm]!==null)idk=nm});
+        if(idk){var seen={};RAW.forEach(function(r){var k=String(r[idk]||"").trim();if(!k)return;if(seen[k])dupN++;else seen[k]=1})}
+      }
+    }catch(e){}
     CURRENT_FILTER="";
     DEF_META={};LINK2BUGS={};
-    try{parseBugWorkbook(caseWb)}catch(e){}
-    bugWbs.forEach(function(wb2){try{parseBugWorkbook(wb2)}catch(e){}});
+    wbs.forEach(function(wb){if(wb)try{parseBugWorkbook(wb)}catch(e){}});
     var bugN=Object.keys(DEF_META).length;
     analyze();
     document.getElementById("toolbar").style.display="flex";
     document.getElementById("main").style.display="block";
     document.getElementById("dropzone").style.display="none";
-    var msg="分析完成,共 "+ALL_ROWS.length+" 条用例";
+    var msg="分析完成,共 "+fmtN(RAW.length)+" 条用例(合并 "+caseSheets.length+" 个用例 sheet"+(caseSheets.length>1?": "+caseSheets.map(function(cs){return cs.name}).join(" / "):"")+")";
     if(bugN)msg+=";BUG 库已联动 "+bugN+" 个缺陷";
-    if(files.length>1)msg+="(本次读取 "+files.length+" 个文件)";
-    var bad=errs.length+dup;
-    if(bad)msg+=";已忽略 "+bad+" 个无法识别/重复的文件";
+    if(files.length>1)msg+=";本次读取 "+files.length+" 个文件";
+    if(dupN)msg+=";⚠ 检测到 "+fmtN(dupN)+" 条重复 ID 用例(已全部保留,如需去重请删除重复行后重导)";
+    if(errs.length||unrec)msg+=";已忽略 "+(errs.length+unrec)+" 个无法识别的文件";
     toast(msg);
   }catch(err){toast("解析失败: "+err.message);console.error(err)}
 }

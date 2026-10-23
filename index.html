@@ -178,9 +178,9 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.21-r12";
+var APP_VER="v2026.10.23-r13";
 document.getElementById("verTag").textContent=APP_VER;
-var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LINK2BUGS={};
+var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LEDF={},LINK2BUGS={};
 
 /* ---------- 基础工具 ---------- */
 function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.style.opacity=1;setTimeout(function(){t.style.opacity=0},2400)}
@@ -909,6 +909,25 @@ function renderDefects(){
     var prRank={"Critical":5,"Major":4,"Normal":3,"Minor":2,"Trivial":1};
     stk=Object.keys(stDist).sort(function(a,b){return stDist[b]-stDist[a]});
     prk=Object.keys(prDist).sort(function(a,b){return (prRank[b]||0)-(prRank[a]||0)});
+    var chP={},chS={},chR={};
+    rowsL.forEach(function(r){var mt=r.mt||{};var p=mt.priority||"(空)",s=mt.status||"(空)",res=mt.resolution||"(空)";chP[p]=(chP[p]||0)+1;chS[s]=(chS[s]||0)+1;chR[res]=(chR[res]||0)+1});
+    function ledSel(dim){return Object.keys(LEDF).filter(function(k){return LEDF[k]&&k.indexOf(dim+"|")===0}).map(function(k){return k.slice(4)})}
+    var _p=ledSel("pri"),_s=ledSel("sta"),_r=ledSel("res");
+    var rowsBefore=rowsL.length;
+    if(_p.length||_s.length||_r.length){
+      rowsL=rowsL.filter(function(r){var mt=r.mt||{};
+        if(_p.length&&_p.indexOf(mt.priority||"(空)")===-1)return false;
+        if(_s.length&&_s.indexOf(mt.status||"(空)")===-1)return false;
+        if(_r.length&&_r.indexOf(mt.resolution||"(空)")===-1)return false;
+        return true;
+      });
+    }
+    var ledActive=!!(_p.length||_s.length||_r.length);
+    function chipRow(dim,label,dist){
+      var ks=Object.keys(dist).sort(function(a,b){return dist[b]-dist[a]}).slice(0,16);
+      if(ks.length<2)return "";
+      return '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px;margin:2px 0"><span style="color:var(--muted);min-width:64px">'+label+'</span>'+ks.map(function(v){return '<span class="rchk'+(LEDF[dim+"|"+v]?" on":"")+'" data-lk="'+esc(dim+"|"+v)+'">'+esc(v)+' ('+fmtN(dist[v])+')</span>'}).join("")+'</div>';
+    }
     var lrows=rowsL.map(function(r){
       var mt=r.mt||{};
       return '<tr data-name="'+esc((r.t.id+" "+(mt.summary||"")).toLowerCase())+'">'+
@@ -923,7 +942,7 @@ function renderDefects(){
     }).join("");
     ledger='<div class="box" style="margin-top:16px">'+
       '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">'+
-      '<h3 style="margin:0">缺陷台账(BUG 库共 '+fmtN(libCount)+' 个 · 用例已关联 '+fmtN(d.topDefects.length)+' 个'+((RESULT.linkStats&&RESULT.linkStats.cases)?(' · Test Id 联动 '+fmtN(RESULT.linkStats.cases)+' 条用例执行'):'')+(missM?(',其中 '+fmtN(missM)+' 个缺明细'):'')+')</h3>'+
+      '<h3 style="margin:0">缺陷台账(BUG 库共 '+fmtN(libCount)+' 个 · 用例已关联 '+fmtN(d.topDefects.length)+' 个'+(ledActive?' · 筛选后 '+fmtN(rowsL.length)+'/'+fmtN(rowsBefore):'')+((RESULT.linkStats&&RESULT.linkStats.cases)?(' · Test Id 联动 '+fmtN(RESULT.linkStats.cases)+' 条用例执行'):'')+(missM?(',其中 '+fmtN(missM)+' 个缺明细'):'')+')</h3>'+
       '<label style="font-size:12px;color:var(--muted);cursor:pointer;user-select:none"><input type="checkbox" id="bugShowAllChk"'+(BUGSHOWALL?" checked":"")+'> 显示全部 BUG(含未关联用例)</label>'+
       '<input id="bugTableSearch" class="search-input" placeholder="🔍 过滤 Jira Id / Summary..." style="margin-left:auto">'+
       '<span style="font-size:11px;color:var(--muted)">点击表头可排序</span></div>'+
@@ -931,6 +950,7 @@ function renderDefects(){
         '<div><h3 style="font-size:13px;margin:0 0 6px">'+(BUGSHOWALL?"全部 BUG":"已关联缺陷")+' · Status 分布</h3><div class="chartbox sm" style="height:220px"><canvas id="cBugStatus"></canvas></div></div>'+
         '<div><h3 style="font-size:13px;margin:0 0 6px">'+(BUGSHOWALL?"全部 BUG":"已关联缺陷")+' · Priority 分布</h3><div class="chartbox sm" style="height:220px"><canvas id="cBugPriority"></canvas></div></div>'+
       '</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 8px"><div style="flex:1;min-width:300px">'+chipRow("pri","Priority",chP)+chipRow("sta","Status",chS)+chipRow("res","Resolution",chR)+'</div>'+(ledActive?'<button type="button" class="ghost" id="ledClear" style="padding:4px 12px;font-size:12px;align-self:flex-start">清除台账筛选</button>':'')+'</div>'+
       '<div class="scroll-box" style="max-height:520px"><table id="bugTable"><thead><tr>'+
       '<th class="sortable" data-col="0">Jira Id</th><th class="sortable" data-col="1">Summary</th><th class="sortable" data-col="2">Priority</th><th class="sortable" data-col="3">Status</th><th class="sortable" data-col="4">Resolution</th><th class="sortable" data-col="5">Assignee</th><th class="sortable" data-col="6">关联用例数</th><th class="sortable" data-col="7">涉及模块数</th>'+
       '</tr></thead><tbody>'+lrows+'</tbody></table></div>'+
@@ -1014,6 +1034,9 @@ function renderDefects(){
   if(libCount){
     var saChk=document.getElementById("bugShowAllChk");
     if(saChk)saChk.onchange=function(){BUGSHOWALL=this.checked;renderDefects()};
+    document.querySelectorAll("#p7 .rchk[data-lk]").forEach(function(el){el.onclick=function(){var k=el.getAttribute("data-lk");LEDF[k]=!LEDF[k];renderDefects()}});
+    var lcBtn=document.getElementById("ledClear");
+    if(lcBtn)lcBtn.onclick=function(){LEDF={};renderDefects()};
     var bst=document.getElementById("bugTableSearch");
     if(bst)bst.oninput=function(){
       var q=this.value.trim().toLowerCase();
@@ -1654,10 +1677,12 @@ function exportExcel(){
   if(mdrows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mdrows),"模块缺陷明细");
 
   if(Object.keys(DEF_META).length){
-    var bdata=RESULT.defStats.topDefects.map(function(t){
-      var m=DEF_META[t.id]||{};
-      return{"Jira Id":t.id,"Priority":m.priority||"","Status":m.status||"","Resolution":m.resolution||"","Assignee":m.assignee||"","Created On":m.created||"","Summary":m.summary||"","关联用例数":t.count,"涉及模块数":t.mods};
+    var cMap={};RESULT.defStats.topDefects.forEach(function(t){cMap[t.id]=t});
+    var bdata=Object.keys(DEF_META).map(function(id){
+      var m=DEF_META[id]||{},t=cMap[id]||{count:0,mods:0};
+      return{"Jira Id":id,"Priority":m.priority||"","Status":m.status||"","Resolution":m.resolution||"","Assignee":m.assignee||"","Created On":m.created||"","Summary":m.summary||"","关联用例数":t.count,"涉及模块数":t.mods};
     });
+    bdata.sort(function(a,b){return b["关联用例数"]-a["关联用例数"]||String(a["Jira Id"]).localeCompare(String(b["Jira Id"]))});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bdata),"缺陷台账BUG表");
   }
 

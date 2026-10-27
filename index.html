@@ -178,7 +178,7 @@ table{border-radius:8px;overflow-anchor:none}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var APP_VER="v2026.10.23-r14";
+var APP_VER="v2026.10.27-r15";
 document.getElementById("verTag").textContent=APP_VER;
 var RAW=[],ALL_ROWS=[],RESULT=null,charts={},CURRENT_FILTER="",COMBOS={},MODSORT={col:1,desc:false},DEFSORT={col:3,desc:true},DEF_META={},BUGSORT={col:6,desc:true},BUGSHOWALL=false,LEDF={},LEDIST={},LINK2BUGS={};
 
@@ -1675,16 +1675,23 @@ function exportExcel(){
       });
     });
   });
-  if(mdrows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mdrows),"模块缺陷明细");
+  if(mdrows.length){
+    var wsM=XLSX.utils.json_to_sheet(mdrows);
+    linkCol(wsM,"缺陷ID",function(v){return bugUrl(v.trim())});
+    XLSX.utils.book_append_sheet(wb,wsM,"模块缺陷明细");
+  }
 
   if(Object.keys(DEF_META).length){
     var cMap={};RESULT.defStats.topDefects.forEach(function(t){cMap[t.id]=t});
     var bdata=Object.keys(DEF_META).map(function(id){
       var m=DEF_META[id]||{},t=cMap[id]||{count:0,mods:0};
-      return{"Jira Id":id,"Priority":m.priority||"","Status":m.status||"","Resolution":m.resolution||"","Assignee":m.assignee||"","Created On":m.created||"","Summary":m.summary||"","关联用例数":t.count,"涉及模块数":t.mods};
+      return{"Jira Id":id,"Priority":m.priority||"","Status":m.status||"","Resolution":m.resolution||"","Assignee":m.assignee||"","Created On":m.created||"","Summary":m.summary||"","关联用例数":t.count,"涉及模块数":t.mods,"链接 (JIRA)":bugUrl(id)};
     });
     bdata.sort(function(a,b){return b["关联用例数"]-a["关联用例数"]||String(a["Jira Id"]).localeCompare(String(b["Jira Id"]))});
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bdata),"缺陷台账BUG表");
+    var wsB=XLSX.utils.json_to_sheet(bdata);
+    linkCol(wsB,"Jira Id",function(v){return bugUrl(v.trim())});
+    linkCol(wsB,"链接 (JIRA)",function(v){return /^https?:/i.test(v)?v:""});
+    XLSX.utils.book_append_sheet(wb,wsB,"缺陷台账BUG表");
   }
 
   if(RESULT.autoPass&&RESULT.autoPass.rows.length){
@@ -1763,6 +1770,31 @@ function bugPriBadge(s){return '<span class="badge" style="background:'+bugPriCo
 /* ---------- 缺陷链接模板 ---------- */
 function getBugTpl(){try{return localStorage.getItem("bugUrlTpl")||""}catch(e){return ""}}
 function setBugTpl(v){try{localStorage.setItem("bugUrlTpl",v)}catch(e){}}
+function bugUrl(id){
+  var mt=DEF_META[id]||{};
+  if(mt.url&&/^https?:\/\//i.test(mt.url))return mt.url;
+  var tpl=getBugTpl();
+  if(tpl&&tpl.indexOf("{id}")!==-1)return tpl.split("{id}").join(encodeURIComponent(id));
+  return "";
+}
+function linkCol(ws,headerName,urlFrom){
+  try{
+    if(!ws||!ws["!ref"])return;
+    var rng=XLSX.utils.decode_range(ws["!ref"]);
+    for(var c=rng.s.c;c<=rng.e.c;c++){
+      var hc=ws[XLSX.utils.encode_cell({r:rng.s.r,c:c})];
+      if(hc&&String(hc.v)===headerName){
+        for(var r=rng.s.r+1;r<=rng.e.r;r++){
+          var cell=ws[XLSX.utils.encode_cell({r:r,c:c})];
+          if(!cell||cell.v===undefined||cell.v==="")continue;
+          var u=urlFrom(String(cell.v));
+          if(u)cell.l={Target:u,Tooltip:u};
+        }
+        break;
+      }
+    }
+  }catch(e){}
+}
 function bugLink(id){
   var mt=DEF_META[id]||{};
   return bugLinkUrl(id,mt.url);
